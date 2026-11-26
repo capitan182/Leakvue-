@@ -241,6 +241,10 @@
         ${statusPill}
       </div>
       ${c.note ? html`<p class="muted small">${c.note}</p>` : ''}
+      ${c.silent ? html`<div class="lab-alert"><strong>The device isn't answering.</strong>
+        It connected, but it ignores our requests. If the iPhone shows a <em>Bluetooth Pairing Request</em>,
+        tap <strong>Pair</strong>, then tap Read everything again. If it asks for a code you don't have,
+        stop there and share the log.</div>` : ''}
       ${c.locked ? html`<div class="lab-alert"><strong>Some values are locked.</strong>
         The device wants pairing or encryption before it will share them. We stop here rather than
         try to get around that. Share the log; the next step would be asking ALD / PlainSight how the
@@ -401,13 +405,32 @@
     }
   }
 
+  /**
+   * A device that leaves two requests in a row unanswered is not going to answer the rest, and
+   * iOS drops the connection 30 seconds after an unanswered request. So stop asking. The usual
+   * cause is that the device wants to be paired first.
+   */
+  function answered(c, err) {
+    if (!err) { c.strikes = 0; return true; }
+    if (!/time(d)? ?out/i.test(LV.native.errText(err))) { c.strikes = 0; return true; }
+    c.strikes = (c.strikes || 0) + 1;
+    if (c.strikes >= 2 && !c.silent) {
+      c.silent = true;
+      log('SILENT', 'The device left ' + c.strikes + ' requests in a row unanswered. Not sending more. ' +
+        'It may be waiting to be paired, or for its own app to start it.');
+      mark('conn');
+    }
+    return !c.silent;
+  }
+
   async function readAll(c, reason) {
     for (const ch of c.chars.values()) {
-      if (S.conn !== c || c.status !== 'connected') return;
+      if (S.conn !== c || c.status !== 'connected' || c.silent) return;
       if (!ch.props.read) continue;
       if (reason === 'poll' && (ch.subscribed || ch.readFailed)) continue;
       try {
         record(ch, 'READ', await LV.ble.read(c.id, ch.service, ch.uuid));
+        answered(c);
       } catch (err) {
         const msg = LV.native.errText(err);
         ch.error = 'Could not read: ' + msg;
@@ -415,23 +438,27 @@
         if (reason !== 'poll') log('READERR', ch.alias + ' ' + msg);
         noteLocked(c, msg);
         mark('conn');
+        if (!answered(c, err)) return;
       }
     }
   }
 
   async function subscribeAll(c) {
     for (const ch of c.chars.values()) {
-      if (S.conn !== c || c.status !== 'connected') return;
+      if (S.conn !== c || c.status !== 'connected' || c.silent) return;
       if (!(ch.props.notify || ch.props.indicate) || ch.subscribed) continue;
       try {
         await LV.ble.subscribe(c.id, ch.service, ch.uuid, (hex) => { if (S.conn === c) record(ch, 'NOTIFY', hex); });
         ch.subscribed = true;
+        ch.error = '';
         log('LISTEN', ch.alias + ' listening for ' + (ch.props.notify ? 'notifications' : 'indications'));
+        answered(c);
       } catch (err) {
         const msg = LV.native.errText(err);
         ch.error = 'Could not listen: ' + msg;
         log('SUBERR', ch.alias + ' ' + msg);
         noteLocked(c, msg);
+        if (!answered(c, err)) { mark('conn'); return; }
       }
       mark('conn');
     }
@@ -455,7 +482,7 @@
     c.status = 'disconnected';
     c.busy = false;
     c.chars.forEach((ch) => { ch.subscribed = false; });
-    log('DISCONN', 'id=' + c.id);
+    log('DISCONN', 'id=' + c.id + (c.connectedAt ? ' after ' + ((Date.now() - c.connectedAt) / 1000).toFixed(1) + 's connected' : ''));
     mark('conn');
     mark('devices');
   }
@@ -478,6 +505,7 @@
       await LV.ble.connect(id, () => onDisconnected(c));
       if (S.conn !== c) return;
       c.status = 'connected';
+      c.connectedAt = Date.now();
       c.note = 'Reading what the device offers…';
       mark('conn');
 
@@ -502,13 +530,14 @@
         }
       }
       mark('conn');
-      await readAll(c, 'first');
       await subscribeAll(c);
+      await readAll(c, 'first');
       if (S.conn === c && c.status === 'connected') {
         const listening = Array.from(c.chars.values()).filter((ch) => ch.subscribed).length;
-        c.note = listening
-          ? 'Listening to ' + plural(listening, 'value') + '. Move the water and watch which one changes.'
-          : 'This device does not push any values on its own. Try "Re-read every 2 seconds".';
+        c.note = c.silent ? ''
+          : listening
+            ? 'Listening to ' + plural(listening, 'value') + '. Move the water and watch which one changes.'
+            : 'This device does not push any values on its own. Try "Re-read every 2 seconds".';
       }
     } catch (err) {
       const msg = LV.native.errText(err);
@@ -644,8 +673,10 @@
           if (c && c.status === 'connected' && !c.busy) {
             c.busy = true;
             c.chars.forEach((ch) => { ch.readFailed = false; });
+            c.silent = false;
+            c.strikes = 0;
             mark('conn');
-            try { await readAll(c, 'again'); await subscribeAll(c); } finally { c.busy = false; mark('conn'); }
+            try { await subscribeAll(c); await readAll(c, 'again'); } finally { c.busy = false; mark('conn'); }
           }
         }
         else if (act === 'settings') await LV.native.plugin('BluetoothLe').openAppSettings();
