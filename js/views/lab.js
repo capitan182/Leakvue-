@@ -232,7 +232,8 @@
               : html`Change since connect <strong>${ch.level >= ch.lbase ? '+' : ''}${ch.level - ch.lbase}</strong>`}
             <span class="muted small">packet ${ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}</span>
           </div>
-          ${ch.lbase != null ? html`<div class="muted small">raw ${ch.level} · seen ${ch.lmin - ch.lbase} to +${ch.lmax - ch.lbase} · ${plural(ch.count, 'reading')}</div>` : ''}` : ''}
+          ${ch.lbase != null ? html`<div class="muted small">raw ${ch.level} · seen ${ch.lmin - ch.lbase} to +${ch.lmax - ch.lbase} · ${plural(ch.count, 'reading')}</div>` : ''}
+          ${!ch.decoded.error ? html`<button type="button" class="btn btn-sm lab-read" data-act="zero" data-key="${ch.key}">Zero here</button>` : ''}` : ''}
         ${ch.props.read && !ch.firmware && S.conn && S.conn.status === 'connected' ? html`
           <button type="button" class="btn btn-sm lab-read" data-act="read" data-key="${ch.key}" ${S.conn.busy || S.conn.stalled ? 'disabled' : ''}>Read</button>` : ''}
         ${bytes ? html`
@@ -785,6 +786,15 @@
             c.flowSent = true;
             log('WRITE', c.flow.alias + ' ' + FLOW_ON + ' (serial port flow control: phone is ready to receive)');
             toast('Sent "ready"');
+            mark('conn');
+          }
+        }
+        else if (act === 'zero') {
+          const c = S.conn;
+          const ch = c && c.chars.get(btn.dataset.key);
+          if (ch && ch.level != null) {
+            ch.lbase = ch.level; ch.lmin = ch.level; ch.lmax = ch.level;
+            log('ZERO', ch.alias + ' zeroed at raw ' + ch.level);
             mark('conn');
           }
         }
