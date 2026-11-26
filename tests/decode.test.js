@@ -95,3 +95,11 @@ assert.strictEqual(D.leakvueGap(0xff, 0x00), 1, 'wraps 255->0');
 assert.strictEqual(D.leakvueGap(0xfe, 0x01), 3);
 
 console.log('leakvue frame tests passed');
+
+// px (provisional): raw / 2^24
+assert.strictEqual(D.leakvue([0x84, 0x00, 0x00, 0x00, 0x01]).px, 132);
+const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
+close(D.leakvue([0x84, 0x53, 0x8d, 0x9d, 0x86]).px, 132.32638, 1e-5, 'still-water px');
+assert.strictEqual(D.leakvue([0xff, 0x7f, 0xff, 0xff, 0x1c]).px, null);
+close(1 * D.LEAKVUE_IN_PER_PX, 0.1568, 1e-9, 'in per px');
+console.log('leakvue px tests passed');

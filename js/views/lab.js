@@ -228,11 +228,11 @@
         ${ch.error ? html`<div class="lab-error">${ch.error}</div>` : ''}
         ${ch.isData && ch.decoded ? html`
           <div class="lab-reading ${ch.decoded.error ? 'is-err' : ''}">
-            ${ch.decoded.error ? 'Sensor error (no target)'
-              : html`Change since connect <strong>${ch.level >= ch.lbase ? '+' : ''}${ch.level - ch.lbase}</strong>`}
+            ${ch.decoded.error ? 'Float out of the testing zone (no reading)'
+              : html`Change since zero <strong>${fmtIn((ch.level - ch.lbase) / D.LEAKVUE_PX_SCALE * D.LEAKVUE_IN_PER_PX)}</strong>`}
             <span class="muted small">packet ${ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}${ch.errs ? ' · ' + ch.errs + ' sensor errors' : ''}</span>
           </div>
-          ${ch.lbase != null ? html`<div class="muted small">raw ${ch.level} · seen ${ch.lmin - ch.lbase} to +${ch.lmax - ch.lbase} · ${plural(ch.count, 'reading')}</div>` : ''}
+          ${ch.lbase != null ? html`<div class="muted small">${(ch.level / D.LEAKVUE_PX_SCALE).toFixed(4)} px · inches are approximate until a real job confirms them · ${plural(ch.count, 'reading')}</div>` : ''}
           ${!ch.decoded.error ? html`<button type="button" class="btn btn-sm lab-read" data-act="zero" data-key="${ch.key}">Zero here</button>` : ''}` : ''}
         ${ch.props.read && !ch.firmware && S.conn && S.conn.status === 'connected' ? html`
           <button type="button" class="btn btn-sm lab-read" data-act="read" data-key="${ch.key}" ${S.conn.busy || S.conn.stalled ? 'disabled' : ''}>Read</button>` : ''}
@@ -472,7 +472,7 @@
           if (ch.lmin == null || d.raw < ch.lmin) ch.lmin = d.raw;
           if (ch.lmax == null || d.raw > ch.lmax) ch.lmax = d.raw;
         }
-        hint = d.error ? '  level=ERROR(no target)' : '  level=' + d.raw + ' packet=' + d.counter;
+        hint = d.error ? '  level=OUT-OF-ZONE' : '  level=' + d.raw + ' px=' + d.px.toFixed(5) + ' packet=' + d.counter;
       }
     }
     log(kind, ch.alias + ' #' + ch.count + extra + ' ' + valueText(bytes) + hint, t);
@@ -695,12 +695,16 @@
     if (!c || c.status !== 'connected') return '';
     for (const ch of c.chars.values()) {
       if (!ch.isData || !ch.decoded) continue;
-      if (ch.decoded.error) return '  [LeakVue sensor error]';
+      if (ch.decoded.error) return '  [LeakVue out of zone]';
       if (ch.level == null) return '';
       const since = c.connectedAt ? ' t+' + ((Date.now() - c.connectedAt) / 1000).toFixed(1) + 's' : '';
-      return '  [LeakVue raw=' + ch.level + ' packet=' + ch.decoded.counter + since + ']';
+      return '  [LeakVue raw=' + ch.level + ' px=' + (ch.level / D.LEAKVUE_PX_SCALE).toFixed(5) +
+        ' packet=' + ch.decoded.counter + since + ']';
     }
     return '';
+  }
+  function fmtIn(inches) {
+    return (inches >= 0 ? '+' : '−') + Math.abs(inches).toFixed(4) + ' in';
   }
   function logNote(text) {
     log('NOTE', text + liveTag());

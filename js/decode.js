@@ -138,12 +138,19 @@
    * ~5 readings a second. The exact px→inch scale still needs a calibration capture; a leak test
    * only cares about the change over time, where the big constant offset cancels out. */
   const LEAKVUE_DATA_UUID = '0783b03e-8535-b5a0-7140-a304d2495cb8';
+  /* PROVISIONAL (26 Nov 2026), to confirm on a real job:
+   * - px = raw / 2^24 (a fixed-point number with 24 fractional bits). Still water read 132.3264 px; the
+   *   float pushed bottom..top on the bench spanned 132.17..136.25 px, then "out of zone" errors.
+   * - inches = px × 0.1568, worked back from the ALD app's own result screen: −78.52 gal on 30×30 ft is
+   *   −0.14004 in (gallons carry more digits than the "−0.14in" shown), against −0.89290 px. */
+  const LEAKVUE_PX_SCALE = 16777216;
+  const LEAKVUE_IN_PER_PX = 0.1568;
   function leakvue(bytes) {
     if (!bytes || bytes.length < 5) return null;
     const counter = bytes[4];
-    if (bytes[0] === 0xff && bytes[1] === 0x7f) return { counter, error: true, raw: null, status: bytes[0] };
+    if (bytes[0] === 0xff && bytes[1] === 0x7f) return { counter, error: true, raw: null, px: null, status: bytes[0] };
     const raw = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0; // 32-bit big-endian, unsigned
-    return { counter, error: false, raw, status: bytes[0] };
+    return { counter, error: false, raw, px: raw / LEAKVUE_PX_SCALE, status: bytes[0] };
   }
   /** How many readings the counter skipped between two frames (0..255 wrap). 1 = none lost. */
   function leakvueGap(prevCounter, counter) {
@@ -158,7 +165,7 @@
 
   const api = {
     hexToBytes, bytesToHex, ascii, looksLikeText, trials, trialsLine, normUuid, shortUuid, uuidName, fmtFloat, isFirmwareService,
-    leakvue, leakvueGap, LEAKVUE_DATA_UUID,
+    leakvue, leakvueGap, LEAKVUE_DATA_UUID, LEAKVUE_PX_SCALE, LEAKVUE_IN_PER_PX,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

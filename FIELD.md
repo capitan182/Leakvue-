@@ -17,6 +17,12 @@ lv
 
 Press **▶** in Xcode with the phone plugged in.
 
+## Quick check while you set up (no leak needed)
+
+While you turn the fine screw to center the float, our Lab shows the float's position in **px** (e.g. `132.3264 px`).
+If the ALD app shows a live number during setup too, write both down at the same moment, or screenshot both.
+If they match, our conversion is confirmed before the scan even starts.
+
 ## At the pool
 
 1. Set up the LeakVue as normal. In the **ALD app**, connect and start the scan.

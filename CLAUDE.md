@@ -22,6 +22,17 @@ See README.md for the user-facing description and file map.
 - The report (`js/views/report.js`) is always light, and each card should fit one phone screen (about 650–700 px tall at 390 px wide).
 - When you add or rename a JS file, update the `<script>` list in `index.html` and the `ASSETS` list in `sw.js`, and bump `VERSION` in `sw.js`.
 
+## How a LeakVue test is set up (from the owner, 26 Nov 2026)
+
+It's an electronic bucket test built on a stilling well:
+1. A weighted 4-way 1/4" pipe is lowered slowly to the pool floor on a 1/4" clear tube, bleeding all the air out.
+2. The LeakVue canister is set at the pool edge; a red tape band around it gets it roughly to water height. The canister holds a float ("bopper") with a mirror; a laser reads the mirror's height.
+3. The tube is connected to the canister, so the canister's water level follows the pool's, with waves damped out by the thin tube (hence the very steady readings).
+4. In the ALD app, a fine screw raises/lowers the canister until the float sits in the middle of the **testing zone**. Outside the zone the device can't read (our `ff 7f ff ff` frames = float out of zone, not a fault).
+5. Enter pool L×W and duration (default 15 min), press Go. The app shows a live graph and a projected 24-hour loss that firms up as the test runs (= least-squares slope × 24 h, the same idea as `LV.calc.scanRate`).
+
+Air left in the tube, a float near the edge of the zone, or a bumped canister are the likely real-world causes of bad or frozen readings.
+
 ## The readings contract (where Bluetooth plugs in)
 
 A scan is an object in `test.scans[]` (see `LV.model.newScan` in `js/views/tests.js`):
@@ -83,7 +94,8 @@ Phases 1 and 2 are **built but not yet run on a real device**. They were written
 - **Still needed: one calibration capture** to turn `raw` into inches — scale and sign. Settle over still water (reads flat), then change the water level by a **ruler-measured** amount (e.g. +1.00 in, +2.00 in) with a note before each. Linear-fit `raw` vs measured inches → inches = (raw − offset) × scale; a leak test only needs the scale (offset cancels in a rate). The Lab now shows a live "Change since connect" for `…cb8` and logs `level=<raw> packet=<n>`, so the capture is easy to read. **Which byte interpretation is still provisional** until this confirms it moves linearly with the ruler.
 - **Calibration plan changed (owner's call, 26 Nov 2026):** bench-faking a leak gives poor numbers, so calibrate from **real jobs** instead (FIELD.md). The owner runs the Lab alongside the ALD app on real leaking pools; every NOTE is now stamped with the live reading (`[LeakVue raw=… packet=… t+…s]`), quick markers are job events (scan started, pump on/off, isolated, screenshot taken, scan finished), and the note box asks for what the ALD app shows (in, gal, and especially px). Match the ALD app's reported change (inches, px) over a scan window against our raw slope over the same window → counts per inch, and validate our calc against theirs. ALD screenshots are aligned by their capture time against the log's ISO timestamps. A float-movement bench capture (no notes, hand-pushed, 475 frames) confirmed raw tracks the float monotonically (float up = raw up), ~68M raw over full float travel, **zero dropped packets**; its 53 sensor errors were at the top end stop and during fast hand moves. The owner's ALD app graph/leak number froze on a job the day before; with our comms perfect, that points at the ALD app, not the device.
 - `UIBackgroundModes: bluetooth-central` added so the Lab keeps receiving while the tech flips to the ALD app; unverified whether WKWebView JS keeps running in the background — the dropped-packet count shows it.
-- Once calibrated: map `raw`→inches in `js/calc.js` (or a small `decode` helper), then Phase 3. The only write the Lab does today is the DSPS flow-control `01`; any new writes (e.g. a captured start command) are the owner's call and go in deliberately, not guessed.
+- **Provisional calibration from existing data (no ruler):** treating `raw / 2^24` as the ALD app's **px** gives 132.3264 px in still water (wobble ±0.00002 px) and a 132.17–136.25 px bench span (≈ the testing zone; "out of zone" errors past the top). Working back from the ALD screenshot through **gallons** (more digits than "0.14in"): 78.52 gal ÷ (900 sqft × 0.623) = 0.14004 in, ÷ 0.89290 px = **0.1568 in/px** (0.15674 with 7.48052/12). So the zone is ≈ 0.64 in, which fits "red tape gets you close, fine screw centers it". In code: `LV.decode.leakvue(...).px`, `LEAKVUE_PX_SCALE`, `LEAKVUE_IN_PER_PX = 0.1568` (marked provisional). The Lab shows px and "Change since zero ≈ in". **Confirm on the first real job:** our least-squares px/day over the ALD scan window should equal the ALD app's reported "~24hr px", and in/px should match their in vs px.
+- Once confirmed: map `raw`→inches in `js/calc.js` (or a small `decode` helper), then Phase 3. The only write the Lab does today is the DSPS flow-control `01`; any new writes (e.g. a captured start command) are the owner's call and go in deliberately, not guessed.
 - Plugin quirk seen here: the answer to a read on a subscribed characteristic is also delivered through the notification listener. The Lab now drops that duplicate.
 - If it stays silent even after "ready", the device is waiting for a command from its own app. That is the stop-and-ask line below: don't dig commands out of the official app.
 
