@@ -27,7 +27,7 @@ If they match, our conversion is confirmed before the scan even starts.
 
 1. Set up the LeakVue as normal. In the **ALD app**, connect and start the scan.
 2. Switch to **our app → Lab**. Tap **LeakVue app already running? → Find the connected LeakVue → Connect**.
-3. Check box **C19** is ticking (the "Change since connect" number moves a little, the packet number counts up).
+3. Check box **C19** is ticking (the "Change since zero" number moves a little, the packet number counts up).
 4. Tap the markers as things happen: **ALD scan started**, **Pump ON**, **Pump OFF**, **Isolated a line**,
    **ALD scan finished**.
 5. Whenever the ALD app shows a result, type it in the note box exactly as shown, e.g. `pump on -0.14in -78gal -0.89px`.
