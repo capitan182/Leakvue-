@@ -679,12 +679,32 @@
 
   /* ---------- The screen ---------- */
 
+  // Markers for a real job, run alongside the ALD app. Each one is stamped with the live LeakVue reading.
   const QUICK_NOTES = [
-    'Idle: sensor in still water',
-    'Hand raising and lowering the water',
-    'Draining a little water',
-    'Stopped / water settling',
+    'ALD scan started',
+    'Pump ON',
+    'Pump OFF',
+    'Isolated a line',
+    'Took a screenshot of the ALD app',
+    'ALD scan finished',
   ];
+
+  /** " [LeakVue raw=… packet=… t+…s]" for the reading coming in right now, so a note is tied to the sensor. */
+  function liveTag() {
+    const c = S.conn;
+    if (!c || c.status !== 'connected') return '';
+    for (const ch of c.chars.values()) {
+      if (!ch.isData || !ch.decoded) continue;
+      if (ch.decoded.error) return '  [LeakVue sensor error]';
+      if (ch.level == null) return '';
+      const since = c.connectedAt ? ' t+' + ((Date.now() - c.connectedAt) / 1000).toFixed(1) + 's' : '';
+      return '  [LeakVue raw=' + ch.level + ' packet=' + ch.decoded.counter + since + ']';
+    }
+    return '';
+  }
+  function logNote(text) {
+    log('NOTE', text + liveTag());
+  }
 
   LV.views.lab = async function (root) {
     if (!LV.ble.available()) {
@@ -718,12 +738,13 @@
 
       <section class="card">
         <h2>3. Record and share</h2>
-        <p class="muted small">Tap a note right before you do each thing, so the log shows what the water was doing.</p>
+        <p class="muted small">On a real job: tap a marker when it happens, and whenever the ALD app shows a number, type it below.
+        Every note saves the LeakVue reading at that instant, so we can line their numbers up with ours.</p>
         <div class="lab-notes">
           ${QUICK_NOTES.map((n) => html`<button type="button" class="chip" data-act="note" data-note="${n}">${n}</button>`)}
         </div>
         <form class="input-action lab-note-form" data-act="note-form">
-          <div class="field" style="flex:1"><input type="text" name="note" placeholder="Or type your own note" autocomplete="off" aria-label="Note for the log"></div>
+          <div class="field" style="flex:1"><input type="text" name="note" placeholder="What the ALD app shows, e.g. -0.14in -78gal" autocomplete="off" aria-label="Note for the log"></div>
           <button type="submit" class="btn">Add</button>
         </form>
         <div data-role="log"></div>
@@ -800,7 +821,7 @@
           }
         }
         else if (act === 'settings') await LV.native.plugin('BluetoothLe').openAppSettings();
-        else if (act === 'note') { log('NOTE', btn.dataset.note); toast('Noted'); }
+        else if (act === 'note') { logNote(btn.dataset.note); toast('Noted'); }
         else if (act === 'share') await shareLog();
         else if (act === 'clear') {
           if (!S.log.length || confirm('Clear the log? Share it first if you still need it.')) {
@@ -825,7 +846,7 @@
       const input = e.target.elements.note;
       const text = input.value.trim();
       if (!text) return;
-      log('NOTE', text);
+      logNote(text);
       input.value = '';
       toast('Noted');
     });
