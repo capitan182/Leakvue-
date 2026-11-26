@@ -71,3 +71,27 @@ assert.strictEqual(D.uuidName('6E400003-B5A3-F393-E0A9-E50E24DCCA9E'), 'UART TX 
 assert.strictEqual(D.uuidName('12345678-1234-1234-1234-123456789abc'), '');
 
 console.log('decode tests passed');
+
+// --- LeakVue 2 reading frames ---
+let lv = D.leakvue([0x84, 0x53, 0x8d, 0x9d, 0x86]);
+assert.strictEqual(lv.error, false);
+assert.strictEqual(lv.counter, 0x86);
+assert.strictEqual(lv.raw, 0x84538d9d, 'big-endian 32-bit level');
+assert.strictEqual(lv.status, 0x84);
+// error / no-target sentinel
+lv = D.leakvue([0xff, 0x7f, 0xff, 0xff, 0x1c]);
+assert.strictEqual(lv.error, true);
+assert.strictEqual(lv.counter, 0x1c);
+assert.strictEqual(lv.raw, null);
+// too short
+assert.strictEqual(D.leakvue([0x84, 0x53, 0x8d]), null);
+assert.strictEqual(D.leakvue(null), null);
+// higher value during the sensor-waving spike than at rest (matches the app's graph going up)
+assert.ok(D.leakvue([0x88, 0x3b, 0xad, 0x26, 0x0a]).raw > D.leakvue([0x84, 0x53, 0x8d, 0x9d, 0x86]).raw, 'wave reads higher');
+// packet-counter gap, with wrap
+assert.strictEqual(D.leakvueGap(0x86, 0x87), 1);
+assert.strictEqual(D.leakvueGap(0x10, 0x13), 3);
+assert.strictEqual(D.leakvueGap(0xff, 0x00), 1, 'wraps 255->0');
+assert.strictEqual(D.leakvueGap(0xfe, 0x01), 3);
+
+console.log('leakvue frame tests passed');

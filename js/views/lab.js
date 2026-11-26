@@ -226,6 +226,13 @@
           ${ch.subscribed ? html`<span class="pill status-completed">listening</span>` : ''}
         </div>
         ${ch.error ? html`<div class="lab-error">${ch.error}</div>` : ''}
+        ${ch.isData && ch.decoded ? html`
+          <div class="lab-reading ${ch.decoded.error ? 'is-err' : ''}">
+            ${ch.decoded.error ? 'Sensor error (no target)'
+              : html`Change since connect <strong>${ch.level >= ch.lbase ? '+' : ''}${ch.level - ch.lbase}</strong>`}
+            <span class="muted small">packet ${ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}</span>
+          </div>
+          ${ch.lbase != null ? html`<div class="muted small">raw ${ch.level} · seen ${ch.lmin - ch.lbase} to +${ch.lmax - ch.lbase} · ${plural(ch.count, 'reading')}</div>` : ''}` : ''}
         ${ch.props.read && !ch.firmware && S.conn && S.conn.status === 'connected' ? html`
           <button type="button" class="btn btn-sm lab-read" data-act="read" data-key="${ch.key}" ${S.conn.busy || S.conn.stalled ? 'disabled' : ''}>Read</button>` : ''}
         ${bytes ? html`
@@ -447,7 +454,26 @@
     ch.lastT = t;
     ch.error = '';
     if (ch.distinct.size < 1000) ch.distinct.add(hex);
-    log(kind, ch.alias + ' #' + ch.count + extra + ' ' + valueText(bytes), t);
+    let hint = '';
+    if (ch.isData) {
+      const d = D.leakvue(bytes);
+      if (d) {
+        ch.decoded = d;
+        if (ch.lastCounter != null) {
+          const gap = D.leakvueGap(ch.lastCounter, d.counter);
+          if (gap !== 1) ch.drops = (ch.drops || 0) + (gap > 1 ? gap - 1 : 0);
+        }
+        ch.lastCounter = d.counter;
+        if (!d.error) {
+          ch.level = d.raw;
+          if (ch.lbase == null) ch.lbase = d.raw; // first reading = the zero we measure change from
+          if (ch.lmin == null || d.raw < ch.lmin) ch.lmin = d.raw;
+          if (ch.lmax == null || d.raw > ch.lmax) ch.lmax = d.raw;
+        }
+        hint = d.error ? '  level=ERROR(no target)' : '  level=' + d.raw + ' packet=' + d.counter;
+      }
+    }
+    log(kind, ch.alias + ' #' + ch.count + extra + ' ' + valueText(bytes) + hint, t);
     mark('conn');
   }
 
@@ -592,6 +618,7 @@
             key, alias: S.aliases.get(key), service: svc.uuid, uuid: chr.uuid, props: chr.properties || {},
             count: 0, notifyCount: 0, distinct: new Set(), last: null, lastT: 0, error: '', subscribed: false,
             firmware: D.isFirmwareService(svc.uuid),
+            isData: D.normUuid(chr.uuid) === D.LEAKVUE_DATA_UUID,
           };
           if (D.normUuid(svc.uuid) === DSPS && D.normUuid(chr.uuid) === DSPS_FLOW && ch.props.writeWithoutResponse) c.flow = ch;
           c.chars.set(key, ch);

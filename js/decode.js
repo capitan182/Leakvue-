@@ -129,6 +129,27 @@
     return KNOWN[shortUuid(u)] || '';
   }
 
+  /* --- LeakVue 2 reading frames (Dialog DSPS "data from device", …cb8) ---
+   * Worked out from a real capture (26 Nov 2026, confirmed against the official app's own graph):
+   *   bytes 0-3  the laser level, a big-endian value (the device's app calls the unit "px").
+   *              Higher = higher on the official app's graph. In normal still use byte 0 sits at 0x84.
+   *   byte 4     a packet counter, +1 per reading (wraps 255→0), to catch dropped readings.
+   *   ff 7f ff ff <ctr>  the sensor's "no reading / lost the target" error.
+   * ~5 readings a second. The exact px→inch scale still needs a calibration capture; a leak test
+   * only cares about the change over time, where the big constant offset cancels out. */
+  const LEAKVUE_DATA_UUID = '0783b03e-8535-b5a0-7140-a304d2495cb8';
+  function leakvue(bytes) {
+    if (!bytes || bytes.length < 5) return null;
+    const counter = bytes[4];
+    if (bytes[0] === 0xff && bytes[1] === 0x7f) return { counter, error: true, raw: null, status: bytes[0] };
+    const raw = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0; // 32-bit big-endian, unsigned
+    return { counter, error: false, raw, status: bytes[0] };
+  }
+  /** How many readings the counter skipped between two frames (0..255 wrap). 1 = none lost. */
+  function leakvueGap(prevCounter, counter) {
+    return (counter - prevCounter) & 0xff;
+  }
+
   /** Firmware-update services. The Lab leaves these completely alone. */
   const FIRMWARE = { 'fef5': 1, 'fe59': 1, '8ec90001-f315-4f60-9fb8-838830daea50': 1, '00001530-1212-efde-1523-785feabcd123': 1 };
   function isFirmwareService(u) {
@@ -137,6 +158,7 @@
 
   const api = {
     hexToBytes, bytesToHex, ascii, looksLikeText, trials, trialsLine, normUuid, shortUuid, uuidName, fmtFloat, isFirmwareService,
+    leakvue, leakvueGap, LEAKVUE_DATA_UUID,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

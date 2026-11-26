@@ -589,3 +589,9 @@ body.is-report .appbar { position: static; }
 .lab-advanced { margin: 4px 0 6px; }
 .lab-advanced summary { font-size: .85rem; font-weight: 600; color: var(--brand); cursor: pointer; min-height: 32px; display: flex; align-items: center; }
 .lab-advanced p { margin: 6px 0 8px; }
+.lab-reading {
+  margin-top: 6px; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: var(--brand-soft); font-size: 1rem; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline;
+}
+.lab-reading strong { font: 700 1.3rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.lab-reading.is-err { background: var(--warn-soft); color: var(--warn); }
