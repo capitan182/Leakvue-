@@ -230,7 +230,7 @@
           <div class="lab-reading ${ch.decoded.error ? 'is-err' : ''}">
             ${ch.decoded.error ? 'Sensor error (no target)'
               : html`Change since connect <strong>${ch.level >= ch.lbase ? '+' : ''}${ch.level - ch.lbase}</strong>`}
-            <span class="muted small">packet ${ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}</span>
+            <span class="muted small">packet ${ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}${ch.errs ? ' · ' + ch.errs + ' sensor errors' : ''}</span>
           </div>
           ${ch.lbase != null ? html`<div class="muted small">raw ${ch.level} · seen ${ch.lmin - ch.lbase} to +${ch.lmax - ch.lbase} · ${plural(ch.count, 'reading')}</div>` : ''}
           ${!ch.decoded.error ? html`<button type="button" class="btn btn-sm lab-read" data-act="zero" data-key="${ch.key}">Zero here</button>` : ''}` : ''}
@@ -465,6 +465,7 @@
           if (gap !== 1) ch.drops = (ch.drops || 0) + (gap > 1 ? gap - 1 : 0);
         }
         ch.lastCounter = d.counter;
+        if (d.error) ch.errs = (ch.errs || 0) + 1;
         if (!d.error) {
           ch.level = d.raw;
           if (ch.lbase == null) ch.lbase = d.raw; // first reading = the zero we measure change from
