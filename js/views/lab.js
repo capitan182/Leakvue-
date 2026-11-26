@@ -448,7 +448,9 @@
   async function readOne(c, ch, quiet) {
     if (S.conn !== c || c.status !== 'connected' || c.stalled || ch.firmware) return false;
     try {
-      record(ch, 'READ', await LV.ble.read(c.id, ch.service, ch.uuid));
+      const hex = await LV.ble.read(c.id, ch.service, ch.uuid);
+      ch.echo = { hex, until: Date.now() + 250 };
+      record(ch, 'READ', hex);
       ch.readOk = true;
       return true;
     } catch (err) {
@@ -478,7 +480,14 @@
       if (S.conn !== c || c.status !== 'connected' || c.silent) return;
       if (!(ch.props.notify || ch.props.indicate) || ch.subscribed || ch.firmware) continue;
       try {
-        await LV.ble.subscribe(c.id, ch.service, ch.uuid, (hex) => { if (S.conn === c) record(ch, 'NOTIFY', hex); });
+        await LV.ble.subscribe(c.id, ch.service, ch.uuid, (hex) => {
+          if (S.conn !== c) return;
+          // The plugin reports the answer to a Read a second time as if the device had pushed it. Drop that copy.
+          const e = ch.echo;
+          ch.echo = null;
+          if (e && e.hex === hex && Date.now() <= e.until) return;
+          record(ch, 'NOTIFY', hex);
+        });
         ch.subscribed = true;
         ch.error = '';
         log('LISTEN', ch.alias + ' listening for ' + (ch.props.notify ? 'notifications' : 'indications'));
