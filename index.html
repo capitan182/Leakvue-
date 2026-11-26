@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Leakvue</title>
+  <meta name="description" content="Leak detection field reports: log the job, findings and photos, and give the customer a signed report.">
+  <meta name="theme-color" content="#0a4f94">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Leakvue">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#app">Skip to content</a>
+  <header class="appbar no-print">
+    <div class="appbar-inner">
+      <a class="brand" href="#/jobs" aria-label="Leakvue home">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+          <path d="M16 3C12 9 7 14 7 20a9 9 0 0 0 18 0c0-6-5-11-9-17z" fill="currentColor"/>
+          <path d="M12 21a4 4 0 0 0 4 4" fill="none" stroke="var(--appbar)" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="brand-name">Leakvue</span>
+        <span class="brand-co" id="brand-co"></span>
+      </a>
+      <nav class="appnav" aria-label="Main">
+        <a href="#/jobs" data-nav="jobs">Jobs</a>
+        <a href="#/settings" data-nav="settings">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app" tabindex="-1"></main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <noscript><p style="padding:24px">Leakvue needs JavaScript turned on.</p></noscript>
+
+  <script src="js/util.js"></script>
+  <script src="js/catalog.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/form.js"></script>
+  <script src="js/photos.js"></script>
+  <script src="js/signature.js"></script>
+  <script src="js/views/jobs.js"></script>
+  <script src="js/views/job.js"></script>
+  <script src="js/views/report.js"></script>
+  <script src="js/views/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
