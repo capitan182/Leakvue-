@@ -160,5 +160,15 @@
       const res = await ble().readRssi({ deviceId });
       return res ? Number(res.value) : null;
     },
+
+    /**
+     * Devices iOS is already connected to that expose one of these services — including ones
+     * another app (such as the official LeakVue app) opened. They usually stop advertising once
+     * connected, so a scan won't find them; this will. Returns [{ deviceId, name }].
+     */
+    async alreadyConnected(services) {
+      const res = await ble().getConnectedDevices({ services });
+      return (res && res.devices) || [];
+    },
   };
 })();

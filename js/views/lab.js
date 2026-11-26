@@ -155,6 +155,12 @@
         </button>
         ${S.scanning ? html`<span class="lab-live"><span class="lab-dot"></span>Scanning</span>` : ''}
       </div>
+      <details class="lab-advanced">
+        <summary>LeakVue app already running?</summary>
+        <p class="muted small">If the official LeakVue app is connected to the device right now, it won't show up in a scan.
+        Tap below to find it so you can listen in while that app runs the test.</p>
+        <button type="button" class="btn btn-sm" data-act="find" ${S.bt === 'starting' ? 'disabled' : ''}>Find the connected LeakVue</button>
+      </details>
       ${total ? html`
         <label class="check lab-check"><input type="checkbox" data-act="named" ${S.namedOnly ? 'checked' : ''}> Only show devices with a name</label>
         <ul class="lab-devices">
@@ -163,8 +169,8 @@
               <div class="lab-device-main">
                 <div class="lab-device-name">${d.name || html`<span class="muted">No name</span>`}</div>
                 <div class="lab-device-meta">
-                  <span class="lab-rssi">${d.rssi == null ? '' : d.rssi + ' dBm · ' + signalWord(d.rssi)}</span>
-                  · heard ${d.seen}×
+                  ${d.seen ? html`<span class="lab-rssi">${d.rssi == null ? '' : d.rssi + ' dBm · ' + signalWord(d.rssi)}</span> · heard ${d.seen}×`
+                    : html`<span class="pill">already connected (another app)</span>`}
                 </div>
                 <div class="lab-id">${d.id}</div>
                 ${d.uuids && d.uuids.length ? html`<div class="lab-id">services: ${d.uuids.map(D.shortUuid).join(', ')}</div>` : ''}
@@ -389,6 +395,32 @@
       S.btMessage = LV.native.errText(err);
       log('ERROR', 'Scan failed: ' + S.btMessage);
     }
+    mark('devices');
+  }
+
+  // Ask iOS which devices another app (the official LeakVue app) already has open, since those
+  // stop advertising and never appear in a scan. The DSPS serial-port service is what marks a LeakVue.
+  async function findConnected() {
+    if (!(await startBluetooth())) return;
+    let devices = [];
+    try {
+      devices = await LV.ble.alreadyConnected([DSPS, 'fef5', '180a']);
+    } catch (err) {
+      log('ERROR', 'Find connected failed: ' + LV.native.errText(err));
+      toast(LV.native.errText(err), 'error');
+      return;
+    }
+    let added = 0;
+    for (const dev of devices) {
+      if (!dev || !dev.deviceId) continue;
+      let d = S.devices.get(dev.deviceId);
+      if (!d) { d = { id: dev.deviceId, name: '', seen: 0, watch: false }; S.devices.set(dev.deviceId, d); added++; }
+      d.name = dev.name || d.name || '';
+      d.preconnected = true;
+      log('FOUND', 'already connected: name="' + d.name + '" id=' + dev.deviceId);
+    }
+    toast(devices.length ? plural(devices.length, 'device') + ' already connected' : 'No already-connected device found');
+    if (!devices.length) log('FOUND', 'nothing already connected with those services');
     mark('devices');
   }
 
@@ -699,6 +731,7 @@
       const act = btn.dataset.act;
       try {
         if (act === 'scan') { if (S.scanning) await stopScan(); else await startScan(); }
+        else if (act === 'find') await findConnected();
         else if (act === 'connect') await connect(btn.dataset.id);
         else if (act === 'disconnect') await disconnect();
         else if (act === 'watch') {
