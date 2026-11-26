@@ -1,8 +1,8 @@
 {
   "name": "Leakvue",
   "short_name": "Leakvue",
-  "description": "Leak detection field reports: findings, photos, customer sign-off and a printable report.",
-  "start_url": "./#/jobs",
+  "description": "LeakVue pool and spa leak tests with gallons lost and homeowner-friendly reports.",
+  "start_url": "./#/tests",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f3f5f8",

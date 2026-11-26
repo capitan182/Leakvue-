@@ -1,68 +1,71 @@
 # Leakvue
 
-Leakvue is a field report app for leak detection technicians. On the job you log the customer and property, the detection methods and tests you ran, and every leak you located with photos. The customer signs on screen, and Leakvue produces a clean, branded report you can print or save as a PDF to email.
+A better companion app for **LeakVue** pool, spa and fountain leak tests, built for one American Leak Detection franchise.
 
-It's a plain web app: no account, no server, no build step. It runs in any modern browser on a phone, tablet or laptop, and keeps working without a signal once it has loaded.
+The current LeakVue app shows a graph that's hard for a homeowner to follow and gives you nothing you can hand over. Leakvue takes the same test (pump ON scan, pump OFF scan, then rescans after you isolate lines) and turns it into:
 
-## What it does
+- **Gallons.** Enter the pool size once and every scan is converted from inches to gallons a day, a month, and bathtubs. You can also show a dollar cost.
+- **A plain-English answer.** It compares pump ON with pump OFF and explains what that points to:
+  - leaks more with the pump running → pressure side (return lines or equipment)
+  - leaks more with the pump off → suction side (skimmer or main drain lines)
+  - about the same either way → the pool structure (light, fittings, shell)
+- **Rescan results.** "With the return lines isolated, the pool stopped losing more than normal evaporation. That was the leak", or "it still loses 90 gallons a day, so there's likely a second leak."
+- **A homeowner report made of phone-sized cards.** Each card makes sense on its own when screenshotted and texted. You can also print or save the whole report as a PDF.
 
-- **Jobs list**: search by customer, address or job number, and filter by status (Scheduled, In progress, Completed).
-- **Job editor**: every change saves automatically on the device.
-  - Job: status, service type, date, arrival time, technician
-  - Customer & property, with one-tap **Call** and **Open in Maps**
-  - Reason for call (the customer's concern)
-  - Detection methods: acoustic, thermal, pressure test, line isolation, meter/flow test, tracer gas, camera, moisture, dye, bucket test, visual
-  - Tests & readings: meter checks, pressure tests, dye or bucket tests, each with an outcome
-  - Findings: one card per leak, with location, system, severity, the method used to locate it, whether it was marked on site, details and photos
-  - Overall result: *Leak located*, *No leak detected* or *Further testing recommended*
-  - Recommendations, site photos, customer signature, and internal notes (left off the report)
-- **Customer report**: company header with your logo, a result banner, findings with photos, a tests table, recommendations, your terms, and signatures. Use **Print / Save PDF**. The PDF file name defaults to the job number and customer name.
-- **Settings**: company name, location line, phone, email, website, license #, logo, job number prefix, default technician, and the terms text printed on every report.
-- **Backup**: export everything (jobs, photos, settings) to a `.json` file, and import it on another device.
+## How a test works in the app
+
+1. **New test.** Enter the customer and the pool size (rectangle, oval, round, kidney, or a known surface area, plus an attached spa).
+2. **Conditions.** Set normal evaporation for the day (default 0.25 in/day; raise it for hot, dry or windy days). Confirm auto-fill is off.
+3. **+ Pump ON scan.** Tap **Start 15:00 timer**; it chimes when the scan is done. Enter the water drop from LeakVue in inches.
+4. **+ Pump OFF scan.** Same again.
+5. **+ Rescan after isolating.** Say what you isolated (main drain, return lines, light niche…), run the scan, and enter the drop. Repeat for a second leak.
+6. **Report.** Screenshot the cards for the homeowner, or use Print / Save PDF.
+
+The **Results** box on the test screen updates live as you enter numbers. If you disagree with the automatic diagnosis you can override it, and anything you type in **Message to the homeowner** appears on the report under "Next steps".
+
+Tap **See a sample report** on the start screen to try a finished test with simulated readings.
+
+## The LeakVue device (Bluetooth): not connected yet
+
+For now the tech types the water drop from the LeakVue app into Leakvue. The plan to read the LeakVue 2 directly over Bluetooth:
+
+1. Learn how the LeakVue 2 sends its readings, using a free Bluetooth scanner app on an iPhone (nRF Connect).
+2. Teach Leakvue to read those values. The level graph and trend-line math are already built and tested on simulated readings.
+3. Get it onto iPhone/iPad with Bluetooth. Apple doesn't let ordinary web pages use Bluetooth, so this needs either the free **Bluefy** browser (quick, no Mac needed) or packaging Leakvue as a real iOS app (needs a Mac with Xcode and an Apple Developer account).
 
 ## Running it
 
-**Easiest: GitHub Pages.** In this repository go to *Settings → Pages*, set *Source* to *Deploy from a branch*, pick the branch and `/ (root)`, and save. Open the URL GitHub gives you on your phone and use *Add to Home Screen* (Share menu on iPhone, ⋮ menu on Android). It then opens like an app and works offline.
+**On phones and iPads:** in this repository go to *Settings → Pages*, choose *Deploy from a branch*, pick the branch and `/ (root)`, and save. Open the link on the iPhone/iPad and use *Share → Add to Home Screen*. It then opens like an app and works with no signal.
 
-**On a computer:** double-click `index.html`. Offline caching and "install as app" need the app served over `https://` (as on GitHub Pages) or from `localhost`:
+**On a computer:** double-click `index.html`, or run `python3 -m http.server 8000` and open http://localhost:8000.
 
-```sh
-python3 -m http.server 8000
-# then open http://localhost:8000
-```
+## Where data lives
 
-## Where your data lives
-
-Jobs, photos and settings are stored **in the browser on that device** (IndexedDB). Nothing is uploaded anywhere. That means:
-
-- Each phone or computer has its own set of jobs. Use **Settings → Export backup** and **Import backup** to move them between devices.
-- Clearing the browser's site data deletes your jobs. **Export a backup regularly.**
-- Photos are resized to 1600 px on the long edge to keep storage small. A job with 10 photos is typically 2–4 MB.
+Tests are stored in the browser on each device (IndexedDB). Nothing is uploaded. Use **Settings → Export backup** regularly and **Import backup** to move tests to another device. Clearing Safari's website data deletes the tests.
 
 ## Customizing
 
-- **Pick lists** (service types, property types, methods, systems, suggested tests) and the default terms text are in [`js/catalog.js`](js/catalog.js).
-- **Colors** are CSS variables at the top of [`css/app.css`](css/app.css). The report always prints in light colors.
-- After you change any file and publish it, bump `VERSION` in [`sw.js`](sw.js) so installed copies pick up the update on their next launch.
+- Wording for the pump ON/OFF explanations, isolation suggestions, pool shapes and default fine print: [`js/catalog.js`](js/catalog.js)
+- Math (surface area, gallons per inch, trend line, diagnosis rules): [`js/calc.js`](js/calc.js). Run `node tests/calc.test.js` after changing it.
+- Leak margin, default evaporation, scan length and water cost: in the app under **Settings → Test defaults**.
+- After publishing changes, bump `VERSION` in [`sw.js`](sw.js) so installed copies update.
 
-## Project layout
+## Files
 
 ```
 index.html            app shell
-css/app.css           styles (screen, dark mode, print)
-js/util.js            HTML escaping/templating, dates, helpers
-js/catalog.js         pick lists and default settings
-js/db.js              IndexedDB storage, job numbering, backup/restore
-js/form.js            form fields bound to job/settings objects
-js/photos.js          photo resize, photo grid, lightbox
-js/signature.js       signature pad
-js/views/jobs.js      job list + new job
-js/views/job.js       job editor
-js/views/report.js    printable customer report
-js/views/settings.js  settings, backup, erase
+css/app.css           styles (screen, dark mode, always-light report, print)
+js/util.js            HTML templating, dates, small helpers
+js/calc.js            all the math (no UI), unit-tested in tests/calc.test.js
+js/catalog.js         pick lists, homeowner wording, defaults
+js/db.js              on-device storage, test numbers, backup/restore
+js/form.js            form fields bound to the test/settings data
+js/story.js           turns results into plain-English sentences
+js/charts.js          loss bars, water-level graph, pool wall figure
+js/views/tests.js     test list, new/sample test
+js/views/test.js      tech screen: pool, scans, timer, live results
+js/views/report.js    homeowner report cards
+js/views/settings.js  company details, test defaults, backup
 js/app.js             router and startup
 sw.js                 offline cache
-manifest.webmanifest  install-as-app metadata
 ```
-
-Plain JavaScript loaded with ordinary `<script>` tags (no modules), so the app also runs when opened straight from disk.

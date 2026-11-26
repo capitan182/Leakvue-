@@ -147,3 +147,27 @@
     getPath, setPath, $, $$, toast, download, readFile, telHref, fullAddress,
   };
 })();
+
+/* Leakvue — shrink an uploaded image (used for the company logo). */
+(function () {
+  'use strict';
+  const LV = window.LV;
+  function shrink(file, maxDim) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/png'));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image.')); };
+      img.src = url;
+    });
+  }
+  LV.images = { shrink };
+})();

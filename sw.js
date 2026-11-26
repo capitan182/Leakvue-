@@ -1,19 +1,20 @@
 /* Leakvue service worker: lets the app open with no signal (basements, crawl spaces, rural sites).
    Serves the cached copy right away and refreshes it in the background. Bump VERSION when you
    deploy so old caches are cleared. Job data is in IndexedDB and is never touched here. */
-const VERSION = 'leakvue-v1';
+const VERSION = 'leakvue-v2';
 const ASSETS = [
   './',
   'index.html',
   'css/app.css',
   'js/util.js',
+  'js/calc.js',
   'js/catalog.js',
   'js/db.js',
   'js/form.js',
-  'js/photos.js',
-  'js/signature.js',
-  'js/views/jobs.js',
-  'js/views/job.js',
+  'js/story.js',
+  'js/charts.js',
+  'js/views/tests.js',
+  'js/views/test.js',
   'js/views/report.js',
   'js/views/settings.js',
   'js/app.js',

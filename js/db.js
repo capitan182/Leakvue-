@@ -1,10 +1,10 @@
-/* Leakvue — on-device storage (IndexedDB). Jobs, photos and settings never leave the device
-   unless the user exports a backup. */
+/* Leakvue — on-device storage (IndexedDB). Tests and settings stay on this device
+   unless the tech exports a backup. */
 (function () {
   'use strict';
   const LV = window.LV;
   const DB_NAME = 'leakvue';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const SETTINGS_KEY = 'app';
 
   let dbPromise = null;
@@ -19,11 +19,9 @@
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains('jobs')) db.createObjectStore('jobs', { keyPath: 'id' });
-        if (!db.objectStoreNames.contains('photos')) {
-          const s = db.createObjectStore('photos', { keyPath: 'id' });
-          s.createIndex('jobId', 'jobId', { unique: false });
-        }
+        // v1 was an early prototype with jobs/photos stores; nothing in them is carried over.
+        ['jobs', 'photos'].forEach((n) => { if (db.objectStoreNames.contains(n)) db.deleteObjectStore(n); });
+        if (!db.objectStoreNames.contains('tests')) db.createObjectStore('tests', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
       };
       req.onsuccess = () => {
@@ -37,7 +35,7 @@
     return dbPromise;
   }
 
-  /** Run fn(stores) inside one transaction; resolves with fn's result after the transaction commits. */
+  /** Run fn(stores) inside one transaction; resolves after the transaction commits. */
   async function tx(storeNames, mode, fn) {
     const db = await open();
     return new Promise((resolve, reject) => {
@@ -58,80 +56,45 @@
     });
   }
 
-  /** Helper: capture a request's result into an object so it is available after commit. */
   function capture(req) {
     const box = { value: undefined };
     req.onsuccess = () => { box.value = req.result; };
     return box;
   }
 
+  async function rawSettings() {
+    const box = await tx('settings', 'readonly', (s) => capture(s.settings.get(SETTINGS_KEY)));
+    return box.value;
+  }
+
   const store = {
-    async getAll(name) {
-      const box = await tx(name, 'readonly', (s) => capture(s[name].getAll()));
+    async listTests() {
+      const box = await tx('tests', 'readonly', (s) => capture(s.tests.getAll()));
       return box.value || [];
     },
-    async get(name, key) {
-      const box = await tx(name, 'readonly', (s) => capture(s[name].get(key)));
+    async getTest(id) {
+      const box = await tx('tests', 'readonly', (s) => capture(s.tests.get(id)));
       return box.value;
     },
-    async put(name, value) {
-      await tx(name, 'readwrite', (s) => { s[name].put(value); });
-      return value;
+    async saveTest(test) {
+      test.updatedAt = Date.now();
+      await tx('tests', 'readwrite', (s) => { s.tests.put(test); });
+      return test;
     },
-    async del(name, key) {
-      await tx(name, 'readwrite', (s) => { s[name].delete(key); });
-    },
-
-    /* ----- jobs ----- */
-    listJobs() { return store.getAll('jobs'); },
-    getJob(id) { return store.get('jobs', id); },
-    saveJob(job) {
-      job.updatedAt = Date.now();
-      return store.put('jobs', job);
-    },
-    async deleteJob(jobId) {
-      await tx(['jobs', 'photos'], 'readwrite', (s) => {
-        s.jobs.delete(jobId);
-        const req = s.photos.index('jobId').openKeyCursor(IDBKeyRange.only(jobId));
-        req.onsuccess = () => {
-          const cur = req.result;
-          if (cur) { s.photos.delete(cur.primaryKey); cur.continue(); }
-        };
-      });
+    async deleteTest(id) {
+      await tx('tests', 'readwrite', (s) => { s.tests.delete(id); });
     },
 
-    /* ----- photos ----- */
-    async photosForJob(jobId) {
-      const box = await tx('photos', 'readonly', (s) => capture(s.photos.index('jobId').getAll(IDBKeyRange.only(jobId))));
-      return (box.value || []).sort((a, b) => a.createdAt - b.createdAt);
-    },
-    savePhoto(photo) { return store.put('photos', photo); },
-    deletePhoto(id) { return store.del('photos', id); },
-    async countPhotosByJob() {
-      // Walk the jobId index with a key cursor: cur.key is the jobId, no photo data is loaded.
-      const counts = {};
-      await tx('photos', 'readonly', (s) => {
-        const req = s.photos.index('jobId').openKeyCursor();
-        req.onsuccess = () => {
-          const cur = req.result;
-          if (cur) { counts[cur.key] = (counts[cur.key] || 0) + 1; cur.continue(); }
-        };
-      });
-      return counts;
-    },
-
-    /* ----- settings ----- */
     async getSettings() {
-      const box = await tx('settings', 'readonly', (s) => capture(s.settings.get(SETTINGS_KEY)));
-      return Object.assign({}, LV.catalog.defaultSettings(), box.value || {});
+      return Object.assign({}, LV.catalog.defaultSettings(), (await rawSettings()) || {});
     },
     async saveSettings(settings) {
       await tx('settings', 'readwrite', (s) => { s.settings.put(settings, SETTINGS_KEY); });
       return settings;
     },
 
-    /** Reserve the next job number, e.g. "LV-2026-0007". */
-    async nextJobNumber() {
+    /** Reserve the next test number, e.g. "LV-2026-0007". */
+    async nextNumber() {
       let number = '';
       await tx('settings', 'readwrite', (s) => {
         const req = s.settings.get(SETTINGS_KEY);
@@ -147,47 +110,36 @@
       return number;
     },
 
-    /* ----- backup ----- */
     async exportAll() {
-      const [jobs, photos, settings] = await Promise.all([
-        store.getAll('jobs'), store.getAll('photos'), store.getSettings(),
-      ]);
-      return { app: 'leakvue', version: 1, exportedAt: new Date().toISOString(), settings, jobs, photos };
+      const [tests, settings] = await Promise.all([store.listTests(), store.getSettings()]);
+      return { app: 'leakvue', version: 2, exportedAt: new Date().toISOString(), settings, tests };
     },
-    async importAll(data, opts) {
-      if (!data || data.app !== 'leakvue' || !Array.isArray(data.jobs)) {
+    async importAll(data) {
+      if (!data || data.app !== 'leakvue' || !Array.isArray(data.tests)) {
         throw new Error('That file is not a Leakvue backup.');
       }
-      const replaceSettings = opts && opts.replaceSettings;
-      const storedBox = await tx('settings', 'readonly', (s) => capture(s.settings.get(SETTINGS_KEY)));
-      const stored = storedBox.value;
+      const stored = await rawSettings();
       const current = Object.assign({}, LV.catalog.defaultSettings(), stored || {});
-      await tx(['jobs', 'photos', 'settings'], 'readwrite', (s) => {
-        data.jobs.forEach((j) => { if (j && j.id) s.jobs.put(j); });
-        (data.photos || []).forEach((p) => { if (p && p.id && p.jobId) s.photos.put(p); });
+      await tx(['tests', 'settings'], 'readwrite', (s) => {
+        data.tests.forEach((t) => { if (t && t.id) s.tests.put(t); });
         if (data.settings) {
           let merged;
-          if (replaceSettings || !stored) {
-            // Fresh device: take the backup's company details as-is.
-            merged = Object.assign({}, current, data.settings);
+          if (!stored) {
+            merged = Object.assign({}, current, data.settings); // fresh device: take the backup's details
           } else {
-            // Keep this device's settings; only fill in fields that are blank here.
-            merged = Object.assign({}, current);
+            merged = Object.assign({}, current); // keep this device's settings, fill blanks from the backup
             Object.keys(data.settings).forEach((k) => {
               if ((merged[k] === '' || merged[k] == null) && data.settings[k]) merged[k] = data.settings[k];
             });
           }
-          // Never move the job counter backwards.
           merged.jobSeq = Math.max(Number(current.jobSeq) || 0, Number(data.settings.jobSeq) || 0);
           s.settings.put(merged, SETTINGS_KEY);
         }
       });
-      return { jobs: data.jobs.length, photos: (data.photos || []).length };
+      return { tests: data.tests.length };
     },
     async eraseAll() {
-      await tx(['jobs', 'photos', 'settings'], 'readwrite', (s) => {
-        s.jobs.clear(); s.photos.clear(); s.settings.clear();
-      });
+      await tx(['tests', 'settings'], 'readwrite', (s) => { s.tests.clear(); s.settings.clear(); });
     },
   };
 

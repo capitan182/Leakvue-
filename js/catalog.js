@@ -1,114 +1,88 @@
-/* Leakvue — pick lists and defaults. Edit these to match how your office works. */
+/* Leakvue — pick lists, wording and defaults. Edit here to match how your techs talk. */
 (function () {
   'use strict';
   const LV = window.LV;
 
   const DEFAULT_DISCLAIMER =
-    'Leak detection was performed using non-invasive equipment and methods. Findings reflect the ' +
-    'conditions observed at the time of service. Leak locations are pinpointed as accurately as site ' +
-    'conditions allow (slab thickness, soil, flooring, background noise and access can affect accuracy). ' +
-    'Areas that were not accessible were not inspected. This report does not include repairs unless ' +
-    'stated otherwise, and additional leaks may exist or develop after this inspection.';
+    'LeakVue measures changes in the water surface to a fraction of an inch. Results reflect the ' +
+    'conditions during each scan (weather, wind, swimmers, rain and auto-fill can all affect them). ' +
+    'Gallon figures are estimates based on the pool\'s measured surface area and a typical evaporation ' +
+    'rate for the day of the test.';
 
   LV.catalog = {
     statuses: [
       { id: 'scheduled', label: 'Scheduled' },
-      { id: 'in_progress', label: 'In progress' },
+      { id: 'in_progress', label: 'Testing' },
       { id: 'completed', label: 'Completed' },
     ],
 
-    serviceTypes: [
-      'Slab leak',
-      'Water line leak',
-      'Main service line',
-      'Pool / spa leak',
-      'Sewer / drain',
-      'Irrigation leak',
-      'Gas line leak',
-      'Fire line leak',
-      'Shower pan / tub',
-      'Roof / moisture intrusion',
-      'High water bill',
-      'Commercial / industrial',
-      'Other',
+    bodies: ['Pool', 'Spa', 'Pool + spa', 'Fountain', 'Pond / water feature'],
+
+    shapes: [
+      { id: 'rectangle', label: 'Rectangle' },
+      { id: 'oval', label: 'Oval' },
+      { id: 'round', label: 'Round' },
+      { id: 'kidney', label: 'Kidney / freeform' },
+      { id: 'area', label: 'I know the surface area' },
     ],
 
-    propertyTypes: [
-      'Single-family home',
-      'Condo / townhome',
-      'Multi-family',
-      'Commercial',
-      'HOA / common area',
-      'Pool / spa',
-      'Other',
+    pumps: [
+      { id: 'on', label: 'Pump ON', short: 'ON' },
+      { id: 'off', label: 'Pump OFF', short: 'OFF' },
     ],
 
-    methods: [
-      { id: 'acoustic', label: 'Electronic acoustic listening' },
-      { id: 'thermal', label: 'Thermal imaging' },
-      { id: 'pressure', label: 'Line pressure testing' },
-      { id: 'isolation', label: 'Line isolation' },
-      { id: 'meter', label: 'Water meter / flow test' },
-      { id: 'tracer', label: 'Tracer gas' },
-      { id: 'camera', label: 'Video camera inspection' },
-      { id: 'moisture', label: 'Moisture meter' },
-      { id: 'dye', label: 'Dye test' },
-      { id: 'bucket', label: 'Bucket / evaporation test' },
-      { id: 'visual', label: 'Visual inspection' },
+    isolationSuggestions: [
+      'Main drain',
+      'Skimmer line',
+      'Return lines',
+      'Spa return lines',
+      'Light niche',
+      'Cleaner line',
+      'Waterfall / feature line',
+      'Spillover',
+      'Equipment pad',
+      'Pool shell (below skimmer)',
     ],
 
-    systems: [
-      'Cold water supply',
-      'Hot water supply',
-      'Main service line',
-      'Sewer / drain',
-      'Pool / spa plumbing',
-      'Pool / spa shell',
-      'Irrigation',
-      'Gas',
-      'Fire line',
-      'Roof / building envelope',
-      'HVAC / condensate',
-      'Fixture / appliance',
-      'Other',
-    ],
+    /* What the pump ON vs OFF comparison usually points to, in homeowner language. */
+    patterns: {
+      pressure: {
+        label: 'Pressure side (return lines / equipment)',
+        title: 'It leaks more when the pump is running',
+        body: 'When the pump runs, it pushes water back to the pool through the return lines under pressure. ' +
+              'Losing more water with the pump on points to a leak in that pressurized plumbing or at the equipment.',
+      },
+      suction: {
+        label: 'Suction side (skimmer / main drain lines)',
+        title: 'It leaks more when the pump is off',
+        body: 'While the pump runs, the skimmer and main drain lines pull water toward the pump, which can hold water in. ' +
+              'When the pump is off, water can escape through a break in those lines. Losing more with the pump off points to the suction-side plumbing.',
+      },
+      structure: {
+        label: 'Pool structure (shell, light, fittings)',
+        title: 'It leaks about the same with the pump on or off',
+        body: 'Because the pump makes little difference, the leak is most likely in the pool itself rather than the plumbing — ' +
+              'for example a light, a fitting, the skimmer, or a crack in the shell.',
+      },
+      none: {
+        label: 'No leak (normal evaporation)',
+        title: 'Water loss is within normal evaporation',
+        body: 'The pool lost about as much water as normal evaporation for the conditions. We did not measure a leak during this test.',
+      },
+      single: {
+        label: 'Leak found (one pump setting tested)',
+        title: 'The pool is losing more than evaporation',
+        body: 'The pool is losing more water than evaporation alone explains, which means there is a leak.',
+      },
+    },
 
-    severities: [
-      { id: 'minor', label: 'Minor' },
-      { id: 'moderate', label: 'Moderate' },
-      { id: 'severe', label: 'Severe' },
-    ],
-
-    results: [
-      { id: 'leak_found', label: 'Leak located', tone: 'danger' },
-      { id: 'no_leak', label: 'No leak detected', tone: 'ok' },
-      { id: 'further', label: 'Further testing recommended', tone: 'warn' },
-    ],
-
-    testOutcomes: [
-      { id: '', label: '—' },
-      { id: 'ok', label: 'No leak indicated' },
-      { id: 'leak', label: 'Leak indicated' },
-    ],
-
-    testSuggestions: [
-      'Water meter leak indicator',
-      'Meter reading (start)',
-      'Meter reading (end)',
-      'Static water pressure',
-      'Main line pressure test',
-      'Cold side pressure test',
-      'Hot side pressure test',
-      'Water heater isolation',
-      'Toilet dye test',
-      'Irrigation isolation',
-      'Pool bucket test',
-      'Pool dye test',
-      'Pool pressure test (return lines)',
-      'Pool pressure test (suction lines)',
-      'Sewer camera inspection',
-      'Moisture readings',
-      'Surface temperature (thermal)',
+    diagnosisOptions: [
+      { id: '', label: 'Automatic (from the pump ON / OFF scans)' },
+      { id: 'pressure', label: 'Pressure side (return lines / equipment)' },
+      { id: 'suction', label: 'Suction side (skimmer / main drain lines)' },
+      { id: 'structure', label: 'Pool structure (shell, light, fittings)' },
+      { id: 'none', label: 'No leak (normal evaporation)' },
+      { id: 'hide', label: 'Don’t show a diagnosis' },
     ],
 
     defaultDisclaimer: DEFAULT_DISCLAIMER,
@@ -120,12 +94,15 @@
         phone: '',
         email: '',
         website: '',
-        address: '',
         license: '',
         logo: '',
         jobPrefix: 'LV',
         jobSeq: 0,
         defaultTechnician: '',
+        scanMinutes: 15,
+        evaporation: 0.25,
+        margin: 0.1,
+        waterCost: '',
         disclaimer: DEFAULT_DISCLAIMER,
       };
     },

@@ -5,9 +5,9 @@
   const { html, $, $$, toast } = LV.util;
 
   const routes = [
-    { re: /^#\/jobs\/?$/, view: 'jobs', nav: 'jobs' },
-    { re: /^#\/job\/([\w-]+)\/report\/?$/, view: 'report', nav: 'jobs', bare: true },
-    { re: /^#\/job\/([\w-]+)\/?$/, view: 'job', nav: 'jobs' },
+    { re: /^#\/tests\/?$/, view: 'tests', nav: 'tests' },
+    { re: /^#\/test\/([\w-]+)\/report\/?$/, view: 'report', nav: 'tests', bare: true },
+    { re: /^#\/test\/([\w-]+)\/?$/, view: 'test', nav: 'tests' },
     { re: /^#\/settings\/?$/, view: 'settings', nav: 'settings' },
   ];
 
@@ -15,14 +15,14 @@
   let renderSeq = 0;
 
   async function route() {
-    const hash = location.hash || '#/jobs';
+    const hash = location.hash || '#/tests';
     let match = null;
     let params = [];
     for (const r of routes) {
       const m = hash.match(r.re);
       if (m) { match = r; params = m.slice(1); break; }
     }
-    if (!match) { location.replace('#/jobs'); return; }
+    if (!match) { location.replace('#/tests'); return; }
 
     const seq = ++renderSeq;
     if (current && current.destroy) {
@@ -49,7 +49,7 @@
     } catch (err) {
       console.error(err);
       root.innerHTML = html`<div class="empty"><h2>Something went wrong</h2>
-        <p class="muted">${err.message}</p><a class="btn" href="#/jobs">Back to jobs</a></div>`;
+        <p class="muted">${err.message}</p><a class="btn" href="#/tests">Back to tests</a></div>`;
     }
   }
 
@@ -84,7 +84,7 @@
     refreshBrand();
     route();
 
-    // Ask the browser not to evict jobs and photos under storage pressure.
+    // Ask the browser not to evict saved tests under storage pressure.
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persisted().then((p) => { if (!p) navigator.storage.persist(); }).catch(() => {});
     }
