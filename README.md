@@ -30,7 +30,7 @@ Tap **See a sample report** on the start screen to try a finished test with simu
 For now the tech types the water drop from the LeakVue app into Leakvue. Reading the LeakVue 2 directly is under way:
 
 1. **Done:** Leakvue is packaged as a real iPhone/iPad app (Apple doesn't let web pages use Bluetooth). [IPHONE.md](IPHONE.md) walks through installing it from a Mac, click by click.
-2. **Done:** the app has a **Lab** screen that scans for the LeakVue, connects, shows everything it sends, and records a log you can AirDrop to the Mac. It only listens; it never sends anything to the device.
+2. **Done:** the app has a **Lab** screen that scans for the LeakVue, connects, shows everything it sends, and records a log you can AirDrop to the Mac. It listens, and only asks the device for anything when you tap a button that says so.
 3. **Next:** capture logs from a real LeakVue 2 to work out which value is the water level.
 4. **Then:** a Connect LeakVue button on the test screen that fills in the readings live. The level graph and trend-line math are already built and tested on simulated readings.
 

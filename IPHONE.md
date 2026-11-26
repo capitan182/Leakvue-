@@ -73,13 +73,14 @@ Do this with the LeakVue 2 switched on and its sensor in water. Close the offici
 1. Open the app and tap **Lab**.
 2. Tap **Start scan**. Tap **Allow** when the iPhone asks about Bluetooth.
 3. Hold the phone next to the LeakVue. The strongest signal is listed first. Tap **Connect** on it.
-4. Wait for section 2 to fill in. Each box (C1, C2, …) is one thing the device can tell us.
-5. Record three short captures. Tap the matching note button **right before** each one:
+4. Wait for section 2 to fill in. Each box (C1, C2, …) is one thing the device can tell us. A box gets a blue edge as soon as the device sends something on it.
+5. Wait 30 seconds. If no box has turned blue, tap **Tell the device we're ready** once and wait another 30 seconds. Leave the **Read** buttons alone unless Claude asks: the LeakVue 2 hangs up when asked to read.
+6. Record three short captures (only worth doing once a box is showing changing values). Tap the matching note button **right before** each one:
    - **Idle: sensor in still water**, then leave everything alone for 2 minutes.
    - **Hand raising and lowering the water**, then slowly push water toward the sensor and let it fall back for 1 minute.
    - **Draining a little water** (only if it's easy), then **Stopped / water settling** once you stop.
-6. Tap **Share log → AirDrop →** your Mac. The file lands in the Mac's **Downloads** folder, named `leakvue-device-log-….txt`.
-7. Give that file to Claude.
+7. Tap **Share log → AirDrop →** your Mac. The file lands in the Mac's **Downloads** folder, named `leakvue-device-log-….txt`.
+8. Give that file to Claude, whatever happened.
 
 The screen stays on while the Lab is open. Leave the app on the Lab screen during a capture.
 

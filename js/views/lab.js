@@ -1,9 +1,16 @@
 /* Leakvue — Device Lab: find out what a LeakVue sends over Bluetooth.
  *
  * Only shown inside the native iPhone/iPad app. It scans for nearby Bluetooth devices, connects to
- * the one you pick, lists everything the device offers, reads what can be read and listens to
- * everything that sends updates. Every value goes into a log (hex plus trial decodings) that can be
- * shared to a Mac. It never writes to the device and never tries to get past pairing or encryption.
+ * the one you pick, lists everything the device offers and listens to everything that sends
+ * updates. Every value goes into a log (hex plus trial decodings) that can be shared to a Mac.
+ *
+ * What it will and won't send to a device:
+ * - Reading is only done when the tech taps Read. The LeakVue 2 never answers a read, and iOS
+ *   hangs up 30 seconds after any unanswered request, so reading automatically killed every
+ *   connection.
+ * - The only thing it ever writes is the serial port's standard "ready to receive" byte, and only
+ *   when the tech taps that button.
+ * - It never touches a firmware-update service, and never tries to get past pairing or encryption.
  *
  * The state lives outside the view so the connection and the log survive switching screens.
  */
@@ -18,6 +25,10 @@
   const MAX_DEVICES = 25;     // devices listed on screen (strongest first)
   const POLL_MS = 2000;
   const LOCKED = /insufficient|authenticat|encrypt|authoriz/i;
+  // Dialog/Renesas "DSPS" serial port: data arrives on TX once the phone says it is ready on FLOW.
+  const DSPS = '0783b03e-8535-b5a0-7140-a304d2495cb7';
+  const DSPS_FLOW = '0783b03e-8535-b5a0-7140-a304d2495cb9';
+  const FLOW_ON = '01';
 
   const S = {
     log: [],                  // { t, kind, text }
@@ -209,6 +220,8 @@
           ${ch.subscribed ? html`<span class="pill status-completed">listening</span>` : ''}
         </div>
         ${ch.error ? html`<div class="lab-error">${ch.error}</div>` : ''}
+        ${ch.props.read && !ch.firmware && S.conn && S.conn.status === 'connected' ? html`
+          <button type="button" class="btn btn-sm lab-read" data-act="read" data-key="${ch.key}" ${S.conn.busy || S.conn.stalled ? 'disabled' : ''}>Read</button>` : ''}
         ${bytes ? html`
           <div class="lab-value">${bytes.length ? D.bytesToHex(bytes) : '(empty)'}</div>
           ${D.looksLikeText(bytes) ? html`<div class="lab-text">Text: “${D.ascii(bytes).replace(/\.+$/, '')}”</div>` : ''}
@@ -241,10 +254,12 @@
         ${statusPill}
       </div>
       ${c.note ? html`<p class="muted small">${c.note}</p>` : ''}
+      ${c.stalled && c.status === 'connected' ? html`<div class="lab-alert"><strong>The device didn't answer that.</strong>
+        The iPhone hangs up about 30 seconds after an unanswered question, so expect this connection to drop.
+        Anything the device pushes in the meantime is still recorded. Reconnect afterwards, and don't read that value again.</div>` : ''}
       ${c.silent ? html`<div class="lab-alert"><strong>The device isn't answering.</strong>
-        It connected, but it ignores our requests. If the iPhone shows a <em>Bluetooth Pairing Request</em>,
-        tap <strong>Pair</strong>, then tap Read everything again. If it asks for a code you don't have,
-        stop there and share the log.</div>` : ''}
+        It connected, but it ignored our request to listen. If the iPhone shows a <em>Bluetooth Pairing Request</em>,
+        tap <strong>Pair</strong>, then reconnect. If it asks for a code you don't have, stop there and share the log.</div>` : ''}
       ${c.locked ? html`<div class="lab-alert"><strong>Some values are locked.</strong>
         The device wants pairing or encryption before it will share them. We stop here rather than
         try to get around that. Share the log; the next step would be asking ALD / PlainSight how the
@@ -253,15 +268,21 @@
         ${c.status === 'disconnected'
           ? html`<button type="button" class="btn btn-sm btn-primary" data-act="connect" data-id="${c.id}">Reconnect</button>`
           : html`<button type="button" class="btn btn-sm" data-act="disconnect">Disconnect</button>`}
-        ${c.status === 'connected' ? html`<button type="button" class="btn btn-sm" data-act="reread" ${c.busy ? 'disabled' : ''}>Read everything again</button>` : ''}
       </div>
-      ${c.status === 'connected' ? html`
+      ${c.status === 'connected' && c.flow ? html`
+        <div class="lab-step">
+          <strong>Nothing arriving?</strong> This device sends its data like a serial cable, and it may be waiting
+          for the phone to say "ready". That is the one thing this screen can send: a single standard byte, nothing else.
+          <div class="btn-row"><button type="button" class="btn btn-sm" data-act="flow" ${c.busy ? 'disabled' : ''}>${c.flowSent ? 'Send "ready" again' : 'Tell the device we\'re ready'}</button></div>
+        </div>` : ''}
+      ${c.status === 'connected' && Array.from(c.chars.values()).some((ch) => ch.readOk) ? html`
         <label class="check lab-check"><input type="checkbox" data-act="poll" ${S.poll ? 'checked' : ''}> Re-read every 2 seconds
-          <span class="muted small">(for values the device doesn't push on its own)</span></label>` : ''}
+          <span class="muted small">(only values that answered a Read)</span></label>` : ''}
       ${c.services.map((svc) => html`
         <div class="lab-service">
           <div class="sub-label">Service: ${D.uuidName(svc.uuid) || 'Unknown (maker-specific)'}</div>
           <div class="lab-id">${D.shortUuid(svc.uuid)}</div>
+          ${D.isFirmwareService(svc.uuid) ? html`<p class="muted small">Used to update the device's software. The Lab leaves it alone.</p>` : ''}
           <ul class="lab-chars">${svc.chars.map((key) => charTpl(c.chars.get(key)))}</ul>
         </div>`)}
       ${c.status === 'connected' && !c.busy && !c.services.length ? html`<p class="muted small">This device didn't list any services.</p>` : ''}
@@ -423,30 +444,39 @@
     return !c.silent;
   }
 
-  async function readAll(c, reason) {
-    for (const ch of c.chars.values()) {
-      if (S.conn !== c || c.status !== 'connected' || c.silent) return;
-      if (!ch.props.read) continue;
-      if (reason === 'poll' && (ch.subscribed || ch.readFailed)) continue;
-      try {
-        record(ch, 'READ', await LV.ble.read(c.id, ch.service, ch.uuid));
-        answered(c);
-      } catch (err) {
-        const msg = LV.native.errText(err);
-        ch.error = 'Could not read: ' + msg;
-        ch.readFailed = true;
-        if (reason !== 'poll') log('READERR', ch.alias + ' ' + msg);
-        noteLocked(c, msg);
-        mark('conn');
-        if (!answered(c, err)) return;
+  /** Read one value because the tech asked. Returns false when the device left it unanswered. */
+  async function readOne(c, ch, quiet) {
+    if (S.conn !== c || c.status !== 'connected' || c.stalled || ch.firmware) return false;
+    try {
+      record(ch, 'READ', await LV.ble.read(c.id, ch.service, ch.uuid));
+      ch.readOk = true;
+      return true;
+    } catch (err) {
+      const msg = LV.native.errText(err);
+      ch.error = 'Could not read: ' + msg;
+      ch.readOk = false;
+      if (!quiet) log('READERR', ch.alias + ' ' + msg);
+      noteLocked(c, msg);
+      if (/time(d)? ?out/i.test(msg) && S.conn === c && c.status === 'connected') {
+        c.stalled = true;
+        log('STALLED', ch.alias + ' was not answered. iOS drops the connection about 30 s after an unanswered request. No more reads on this connection.');
       }
+      mark('conn');
+      return false;
+    }
+  }
+
+  /** The every-2-seconds re-read: only values that have already answered a Read. */
+  async function pollOnce(c) {
+    for (const ch of c.chars.values()) {
+      if (ch.readOk && !ch.subscribed) await readOne(c, ch, true);
     }
   }
 
   async function subscribeAll(c) {
     for (const ch of c.chars.values()) {
       if (S.conn !== c || c.status !== 'connected' || c.silent) return;
-      if (!(ch.props.notify || ch.props.indicate) || ch.subscribed) continue;
+      if (!(ch.props.notify || ch.props.indicate) || ch.subscribed || ch.firmware) continue;
       try {
         await LV.ble.subscribe(c.id, ch.service, ch.uuid, (hex) => { if (S.conn === c) record(ch, 'NOTIFY', hex); });
         ch.subscribed = true;
@@ -473,7 +503,7 @@
       const c = S.conn;
       if (!c || c.status !== 'connected' || c.busy || S.polling) return;
       S.polling = true;
-      try { await readAll(c, 'poll'); } finally { S.polling = false; }
+      try { await pollOnce(c); } finally { S.polling = false; }
     }, POLL_MS);
   }
 
@@ -506,7 +536,7 @@
       if (S.conn !== c) return;
       c.status = 'connected';
       c.connectedAt = Date.now();
-      c.note = 'Reading what the device offers…';
+      c.note = 'Seeing what the device offers…';
       mark('conn');
 
       const services = await LV.ble.services(id);
@@ -520,7 +550,9 @@
           const ch = {
             key, alias: S.aliases.get(key), service: svc.uuid, uuid: chr.uuid, props: chr.properties || {},
             count: 0, notifyCount: 0, distinct: new Set(), last: null, lastT: 0, error: '', subscribed: false,
+            firmware: D.isFirmwareService(svc.uuid),
           };
+          if (D.normUuid(svc.uuid) === DSPS && D.normUuid(chr.uuid) === DSPS_FLOW && ch.props.writeWithoutResponse) c.flow = ch;
           c.chars.set(key, ch);
           entry.chars.push(key);
           log('CHAR', ch.alias + ' = ' + D.shortUuid(chr.uuid) + ' in service ' + D.shortUuid(svc.uuid) +
@@ -531,13 +563,13 @@
       }
       mark('conn');
       await subscribeAll(c);
-      await readAll(c, 'first');
       if (S.conn === c && c.status === 'connected') {
         const listening = Array.from(c.chars.values()).filter((ch) => ch.subscribed).length;
         c.note = c.silent ? ''
           : listening
-            ? 'Listening to ' + plural(listening, 'value') + '. Move the water and watch which one changes.'
-            : 'This device does not push any values on its own. Try "Re-read every 2 seconds".';
+            ? 'Listening to ' + plural(listening, 'value') + '. A box turns blue as soon as the device sends something.'
+            : 'This device does not push any values on its own. Use the Read buttons below.';
+        if (listening) log('READY', 'Listening to ' + plural(listening, 'value') + '. Nothing has been read or written.');
       }
     } catch (err) {
       const msg = LV.native.errText(err);
@@ -600,7 +632,7 @@
       <div class="page-head">
         <div>
           <h1>Device Lab</h1>
-          <p class="muted">See what a LeakVue sends over Bluetooth. This screen only listens. It never sends anything to the device.</p>
+          <p class="muted">See what a LeakVue sends over Bluetooth. This screen listens. It only asks the device for something when you tap a button that says so.</p>
         </div>
       </div>
 
@@ -668,15 +700,23 @@
             mark('devices');
           }
         }
-        else if (act === 'reread') {
+        else if (act === 'read') {
           const c = S.conn;
-          if (c && c.status === 'connected' && !c.busy) {
+          const ch = c && c.chars.get(btn.dataset.key);
+          if (ch && c.status === 'connected' && !c.busy) {
             c.busy = true;
-            c.chars.forEach((ch) => { ch.readFailed = false; });
-            c.silent = false;
-            c.strikes = 0;
             mark('conn');
-            try { await subscribeAll(c); await readAll(c, 'again'); } finally { c.busy = false; mark('conn'); }
+            try { await readOne(c, ch); } finally { c.busy = false; mark('conn'); }
+          }
+        }
+        else if (act === 'flow') {
+          const c = S.conn;
+          if (c && c.flow && c.status === 'connected' && !c.busy) {
+            await LV.ble.writeNoReply(c.id, c.flow.service, c.flow.uuid, FLOW_ON);
+            c.flowSent = true;
+            log('WRITE', c.flow.alias + ' ' + FLOW_ON + ' (serial port flow control: phone is ready to receive)');
+            toast('Sent "ready"');
+            mark('conn');
           }
         }
         else if (act === 'settings') await LV.native.plugin('BluetoothLe').openAppSettings();

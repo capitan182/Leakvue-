@@ -6,8 +6,8 @@
  * still no build step.
  *
  * LV.native  is this running inside the app? share a file through the iOS share sheet
- * LV.ble     Bluetooth Low Energy: scan, connect, list services, read, listen. It never writes
- *            to a device.
+ * LV.ble     Bluetooth Low Energy: scan, connect, list services, read, listen, and one
+ *            write-without-reply used for the serial port's "ready" signal.
  */
 (function () {
   'use strict';
@@ -149,6 +149,11 @@
       const key = 'notification|' + deviceId + '|' + service.toLowerCase() + '|' + characteristic.toLowerCase();
       await listen(key, (event) => onValue((event && event.value) || ''));
       await ble().startNotifications({ deviceId, service, characteristic, timeout: 5000 });
+    },
+
+    /** Send bytes (hex string) without asking for a reply. The Lab uses this for one thing only: the serial port's "ready" signal. */
+    async writeNoReply(deviceId, service, characteristic, hex) {
+      await ble().writeWithoutResponse({ deviceId, service, characteristic, value: hex });
     },
 
     async rssi(deviceId) {

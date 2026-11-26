@@ -117,6 +117,11 @@
     '6e400001-b5a3-f393-e0a9-e50e24dcca9e': 'Nordic UART Service',
     '6e400002-b5a3-f393-e0a9-e50e24dcca9e': 'UART RX (phone writes)',
     '6e400003-b5a3-f393-e0a9-e50e24dcca9e': 'UART TX (device sends)',
+    'fef5': 'Firmware update (Dialog SUOTA)',
+    '0783b03e-8535-b5a0-7140-a304d2495cb7': 'Serial port (Dialog DSPS)',
+    '0783b03e-8535-b5a0-7140-a304d2495cb8': 'Serial data from the device',
+    '0783b03e-8535-b5a0-7140-a304d2495cba': 'Serial data to the device',
+    '0783b03e-8535-b5a0-7140-a304d2495cb9': 'Serial flow control',
     'fe59': 'Nordic Firmware Update', '8ec90001-f315-4f60-9fb8-838830daea50': 'Firmware Update Control',
     '8ec90003-f315-4f60-9fb8-838830daea50': 'Firmware Update (buttonless)',
   };
@@ -124,7 +129,15 @@
     return KNOWN[shortUuid(u)] || '';
   }
 
-  const api = { hexToBytes, bytesToHex, ascii, looksLikeText, trials, trialsLine, normUuid, shortUuid, uuidName, fmtFloat };
+  /** Firmware-update services. The Lab leaves these completely alone. */
+  const FIRMWARE = { 'fef5': 1, 'fe59': 1, '8ec90001-f315-4f60-9fb8-838830daea50': 1, '00001530-1212-efde-1523-785feabcd123': 1 };
+  function isFirmwareService(u) {
+    return !!FIRMWARE[shortUuid(u)];
+  }
+
+  const api = {
+    hexToBytes, bytesToHex, ascii, looksLikeText, trials, trialsLine, normUuid, shortUuid, uuidName, fmtFloat, isFirmwareService,
+  };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) { root.LV = root.LV || {}; root.LV.decode = api; }
