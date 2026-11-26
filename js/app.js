@@ -9,6 +9,7 @@
     { re: /^#\/test\/([\w-]+)\/report\/?$/, view: 'report', nav: 'tests', bare: true },
     { re: /^#\/test\/([\w-]+)\/?$/, view: 'test', nav: 'tests' },
     { re: /^#\/settings\/?$/, view: 'settings', nav: 'settings' },
+    { re: /^#\/lab\/?$/, view: 'lab', nav: 'lab' },
   ];
 
   let current = null;
@@ -82,6 +83,11 @@
       return;
     }
     refreshBrand();
+    // The Device Lab needs Bluetooth, which only the native iPhone/iPad app has.
+    if (LV.native.isNative()) {
+      document.documentElement.classList.add('is-native');
+      $$('[data-nav="lab"]').forEach((a) => { a.hidden = false; });
+    }
     route();
 
     // Ask the browser not to evict saved tests under storage pressure.

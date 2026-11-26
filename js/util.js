@@ -110,6 +110,12 @@
   }
 
   function download(filename, content, type) {
+    // Inside the native app there is no Downloads folder; hand the file to the iOS share sheet instead.
+    if (typeof content === 'string' && LV.native && LV.native.isNative()) {
+      LV.native.shareTextFile(filename, content)
+        .catch((err) => toast('Could not share the file: ' + LV.native.errText(err), 'error'));
+      return;
+    }
     const blob = content instanceof Blob ? content : new Blob([content], { type: type || 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

@@ -16,7 +16,7 @@ See README.md for the user-facing description and file map.
 
 - Plain HTML/CSS/JS, **no build step, no bundler, no framework**. Classic `<script>` tags in `index.html`, all code under `window.LV`. It must keep working when served as static files (GitHub Pages) and opened from disk.
 - Storage: IndexedDB via `js/db.js` (stores `tests`, `settings`). Backups are JSON export/import.
-- All math lives in `js/calc.js` (pure, Node-testable). Run `node tests/calc.test.js` after touching it.
+- All math lives in `js/calc.js` (pure, Node-testable). Run `node tests/calc.test.js` after touching it (`npm test` runs it and the decode tests).
 - Homeowner wording lives in `js/catalog.js` and `js/story.js`, so the tech screen and report always say the same thing.
 - Charts are hand-written HTML/SVG in `js/charts.js`. Colours were validated for colour-blind safety: blue `#257de0` = leak, gray `#8893a0` = normal evaporation. Keep those meanings.
 - The report (`js/views/report.js`) is always light, and each card should fit one phone screen (about 650–700 px tall at 390 px wide).
@@ -39,23 +39,31 @@ If `readings` has 3 or more points, `LV.calc.scanRate` ignores `dropIn` and fits
 
 Safari can't use Bluetooth, so the web app gets wrapped as a native app. The owner has a Mac with Xcode, an iPhone and an iPad, and both a **LeakVue 1** (discontinued, no longer updated) and a **LeakVue 2**. The LeakVue 2 uses Bluetooth; the LeakVue 1's connection type is unknown.
 
-### Phase 1: native wrapper
-- Use **Capacitor** with the iOS platform, universal iPhone + iPad. Keep the web files where they are and add a small copy step (e.g. an npm script) that puts `index.html`, `css/`, `js/`, `icons/`, `manifest.webmanifest` into the Capacitor `webDir`, so GitHub Pages keeps working unchanged.
-- Add `NSBluetoothAlwaysUsageDescription` to Info.plist (e.g. "Leakvue connects to your LeakVue sensor to read the water level.").
-- Ask the owner for the bundle ID and app display name before creating the project.
-- Get it running on the owner's own iPhone from Xcode. A free Apple ID "Personal Team" is fine for now (the build expires after 7 days; just re-run it). Bluetooth does **not** work in the iOS Simulator, so use the real phone.
-- Walk the owner through: signing in to Xcode with their Apple ID, plugging in the phone and tapping Trust, and turning on Developer Mode (iPhone Settings → Privacy & Security).
+### Where things stand
 
-### Phase 2: Device Lab (find out what the LeakVue 2 sends)
-Add a **Device Lab** screen, shown only inside the native app, using `@capacitor-community/bluetooth-le`. There's no bundler, so call the native plugin through `window.Capacitor.Plugins` (or add the smallest build step that works, without breaking the static web version). It should:
-- Scan and list nearby devices (name, id, signal strength).
-- Connect, then list every service and characteristic with its properties.
-- Read anything readable, and subscribe to everything that notifies or indicates.
-- Log each value with a timestamp as hex, alongside trial decodings (int16/uint16/int32/uint32/float32 in both byte orders, plus ASCII).
-- Have a **Share log** button (iOS share sheet) so the owner can AirDrop the log to the Mac for you to read.
+Phases 1 and 2 are **built but not yet run on a real device**. They were written in a Linux cloud session with no Xcode, and checked in desktop Chromium against a fake `window.Capacitor` (scan, connect, read, notify, locked value, share, disconnect). The first Xcode build and the first real Bluetooth scan are still to do; expect to fix something small. [IPHONE.md](IPHONE.md) is the owner's click-by-click guide. Follow it with them and keep it accurate.
 
-Then have the owner capture logs: device idle in still water; a hand gently raising and lowering the water near the sensor; and, if practical, a little water drained. Correlate the values to find the level characteristic, its units and scale, and its sample rate.
-- **Don't try to get around security.** If the data is encrypted, needs bonding with a secret, or needs commands you can only get by attacking the official app, stop and tell the owner. The right path then is asking ALD / PlainSight for the protocol.
+### Phase 1: native wrapper (built)
+- **Capacitor 8**, iOS only, Swift Package Manager (no CocoaPods), universal iPhone + iPad. Needs Xcode 26+ and Node 22+ on the Mac.
+- Bundle ID `com.capitan182.leakvue`, display name **LeakVue 3.0 TR** (the owner's choices). Signing team is not set in the project; the owner picks their Personal Team in Xcode.
+- `npm run build:web` copies `index.html`, `css/`, `js/`, `icons/`, `manifest.webmanifest` into `www/` (git-ignored). `npm run sync` does that plus `cap sync ios`. `npm run ios` also opens Xcode. Run `npm run sync` after every web change, or the phone keeps the old files. `sw.js` is not copied and the service worker never registers in the app.
+- `ios/App/App/public` and the SPM package list are generated by `cap sync`; `ios/App/CapApp-SPM/Package.swift` points into `node_modules`, so the Mac needs `npm install` before Xcode can build.
+- Plugins: `@capacitor-community/bluetooth-le`, `@capacitor/share` + `@capacitor/filesystem` (share a file), `@capacitor-community/keep-awake`, `@capacitor/status-bar`. No bundler: `js/native.js` reaches them through `window.Capacitor.Plugins.<Name>`, which the native bridge injects. Raw plugin API, so values arrive as hex strings and notification events are named `notification|<deviceId>|<service>|<characteristic>` in lower case.
+- `LV.native.isNative()` gates everything native. `LV.util.download` sends text files to the share sheet in the app (backup export uses it).
+- Not checked in the app yet: Print / Save PDF on the report (`window.print()` may do nothing inside the app's web view), and backup import through the file picker.
+- Still to walk the owner through on first run: Xcode sign-in, Personal Team, Trust, Developer Mode, and trusting the developer profile on the phone.
+
+### Phase 2: Device Lab (built; needs real captures)
+`#/lab` (`js/views/lab.js`), linked as **Lab** in the app bar only inside the native app. It:
+- Scans and lists nearby devices (name, id, signal strength, advertised services, maker data), strongest first. Names containing "leak" are highlighted and their advertisements logged on every change (**Watch** does the same for any device, in case the level is broadcast rather than read).
+- Connects, lists every service and characteristic with its properties, reads everything readable, subscribes to everything that notifies or indicates. Optional re-read every 2 seconds for values that aren't pushed.
+- **Never writes to the device.** If a read or subscribe fails with an authentication/encryption error it shows "Some values are locked", logs `LOCKED`, and goes no further.
+- Logs each value with a timestamp as hex, ASCII and trial decodings (`js/decode.js`: u/i 16 and 32 bit and float32, both byte orders, at offsets aligned to the type size; decode other offsets from the hex). Characteristics get short aliases (C1, C2, …) defined by the `CHAR` lines.
+- **Share log** writes a `.txt` to the cache folder and opens the share sheet (AirDrop to the Mac's Downloads). The header summarises count, distinct values and push rate per characteristic.
+- Keeps the screen awake while open. The connection and log live in module state, so they survive switching screens but not quitting the app.
+
+Next: have the owner capture logs with the LeakVue 2: idle in still water; a hand gently raising and lowering the water near the sensor; and, if practical, a little water drained. Correlate the values to find the level characteristic, its units and scale, and its sample rate.
+- **Don't try to get around security.** If the data is encrypted, needs bonding with a secret, or needs commands you can only get by attacking the official app, stop and tell the owner. The right path then is asking ALD / PlainSight for the protocol. Note the Lab cannot see anything the device only sends after the official app writes a "start" command; if every capture is silent, that is the likely reason, and it is also a stop-and-ask.
 - Also try the LeakVue 1 and report what you see. If it doesn't appear in a BLE scan, it may use classic Bluetooth, which iOS apps generally can't reach without Apple's MFi program.
 
 ### Phase 3: live scans
@@ -69,4 +77,4 @@ Then have the owner capture logs: device idle in still water; a hand gently rais
 ## Ground rules
 - Commit on a branch and push; don't commit customer data, Apple certificates or keys.
 - Keep the homeowner wording plain and friendly. Read `js/catalog.js` before changing it.
-- Test the math with `node tests/calc.test.js`, and check UI changes in the browser (or on the device) at phone width before calling them done.
+- Test the math with `npm test`, and check UI changes in the browser (or on the device) at phone width before calling them done.

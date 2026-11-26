@@ -25,13 +25,14 @@ The **Results** box on the test screen updates live as you enter numbers. If you
 
 Tap **See a sample report** on the start screen to try a finished test with simulated readings.
 
-## The LeakVue device (Bluetooth): not connected yet
+## The LeakVue device (Bluetooth): finding out what it sends
 
-For now the tech types the water drop from the LeakVue app into Leakvue. The plan to read the LeakVue 2 directly over Bluetooth:
+For now the tech types the water drop from the LeakVue app into Leakvue. Reading the LeakVue 2 directly is under way:
 
-1. Learn how the LeakVue 2 sends its readings, using a free Bluetooth scanner app on an iPhone (nRF Connect).
-2. Teach Leakvue to read those values. The level graph and trend-line math are already built and tested on simulated readings.
-3. Get it onto iPhone/iPad with Bluetooth. Apple doesn't let ordinary web pages use Bluetooth, so this needs either the free **Bluefy** browser (quick, no Mac needed) or packaging Leakvue as a real iOS app (needs a Mac with Xcode and an Apple Developer account).
+1. **Done:** Leakvue is packaged as a real iPhone/iPad app (Apple doesn't let web pages use Bluetooth). [IPHONE.md](IPHONE.md) walks through installing it from a Mac, click by click.
+2. **Done:** the app has a **Lab** screen that scans for the LeakVue, connects, shows everything it sends, and records a log you can AirDrop to the Mac. It only listens; it never sends anything to the device.
+3. **Next:** capture logs from a real LeakVue 2 to work out which value is the water level.
+4. **Then:** a Connect LeakVue button on the test screen that fills in the readings live. The level graph and trend-line math are already built and tested on simulated readings.
 
 ## Running it
 
@@ -57,6 +58,8 @@ index.html            app shell
 css/app.css           styles (screen, dark mode, always-light report, print)
 js/util.js            HTML templating, dates, small helpers
 js/calc.js            all the math (no UI), unit-tested in tests/calc.test.js
+js/decode.js          Bluetooth bytes as hex and trial numbers, unit-tested in tests/decode.test.js
+js/native.js          bridge to the iPhone app: Bluetooth, share sheet, keep screen on
 js/catalog.js         pick lists, homeowner wording, defaults
 js/db.js              on-device storage, test numbers, backup/restore
 js/form.js            form fields bound to the test/settings data
@@ -66,6 +69,13 @@ js/views/tests.js     test list, new/sample test
 js/views/test.js      tech screen: pool, scans, timer, live results
 js/views/report.js    homeowner report cards
 js/views/settings.js  company details, test defaults, backup
+js/views/lab.js       Device Lab (iPhone app only): scan, connect, log, share
 js/app.js             router and startup
-sw.js                 offline cache
+sw.js                 offline cache (web version only)
+
+package.json          iPhone app tooling (Capacitor); the web app itself needs none of it
+capacitor.config.json app ID and name for the iPhone app
+scripts/copy-web.js   copies the web files into www/ for the iPhone app
+ios/                  the Xcode project
+IPHONE.md             how to install the app on an iPhone from a Mac
 ```

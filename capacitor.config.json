@@ -1,0 +1,14 @@
+{
+  "appId": "com.capitan182.leakvue",
+  "appName": "LeakVue 3.0 TR",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "overlaysWebView": true
+    }
+  }
+}
