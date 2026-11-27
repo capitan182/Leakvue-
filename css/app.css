@@ -597,6 +597,11 @@ body.is-report .appbar { position: static; }
 .lab-reading.is-err { background: var(--warn-soft); color: var(--warn); }
 
 /* Visit card: a compact date next to the technician, on every screen size. */
-.grid.visit-grid { grid-template-columns: minmax(0, 10.5rem) minmax(0, 1fr); }
-.visit-grid input[type="date"] { min-width: 0; display: block; }
+.grid.visit-grid { grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr); }
+/* iOS draws date boxes at their own width (spilling out of the card) unless the native look is off. */
+.field input[type="date"] {
+  -webkit-appearance: none; appearance: none;
+  display: block; min-width: 0; max-width: 100%; text-align: left;
+}
+.field input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 @media (max-width: 330px) { .grid.visit-grid { grid-template-columns: 1fr; } }
