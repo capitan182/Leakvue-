@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const LV = window.LV;
-  const { html, $, todayISO, fmtDate, fullAddress, uid, plural, toast } = LV.util;
+  const { html, $, todayISO, fmtDate, uid, plural, toast } = LV.util;
   const C = LV.catalog;
   const K = LV.calc;
 
@@ -13,13 +13,10 @@
       return Object.assign({
         id: uid(),
         number: '',
-        status: 'scheduled',
         createdAt: now,
         updatedAt: now,
         date: todayISO(),
         technician: '',
-        customer: { name: '', phone: '', email: '' },
-        property: { address: '', city: '', state: '', zip: '', access: '' },
         pool: { body: 'Pool', shape: 'rectangle', length: '', width: '', width2: '', diameter: '', area: '', spaArea: '' },
         conditions: { evaporation: String(settings.evaporation), weather: '', autofillOff: true },
         scans: [],
@@ -50,10 +47,7 @@
       const t = LV.model.newTest({
         number,
         sample: true,
-        status: 'completed',
         technician: settings.defaultTechnician || 'Sample Tech',
-        customer: { name: 'Sample Homeowner', phone: '', email: '' },
-        property: { address: '123 Example Street', city: 'Anytown', state: 'AZ', zip: '', access: '' },
         pool: { body: 'Pool', shape: 'rectangle', length: '32', width: '16', width2: '', diameter: '', area: '', spaArea: '' },
         conditions: { evaporation: '0.25', weather: '94°F, sunny, light breeze', autofillOff: true },
         message: 'We plugged the return lines and the pool stopped losing more than normal evaporation, so the leak is in the return plumbing. ' +
@@ -82,8 +76,7 @@
 
   function matches(t, q) {
     if (!q) return true;
-    const hay = [t.number, t.customer && t.customer.name, t.customer && t.customer.phone,
-      fullAddress(t.property), t.technician].join(' ').toLowerCase();
+    const hay = [t.number, t.technician, fmtDate(t.date), t.date, t.pool && t.pool.body, t.notes].join(' ').toLowerCase();
     return q.toLowerCase().split(/\s+/).every((w) => hay.indexOf(w) !== -1);
   }
 
@@ -112,7 +105,6 @@
     const [tests, settings] = await Promise.all([LV.db.listTests(), LV.db.getSettings()]);
     tests.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
     let query = session('lv.q') || '';
-    let status = session('lv.status') || 'all';
 
     root.innerHTML = html`
       <div class="page-head">
@@ -129,9 +121,8 @@
         <div class="toolbar">
           <label class="search">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            <input type="search" placeholder="Search customer, address, test #" value="${query}" aria-label="Search tests" data-act="search">
+            <input type="search" placeholder="Search test #, date or technician" value="${query}" aria-label="Search tests" data-act="search">
           </label>
-          <div class="chips" role="group" aria-label="Filter by status" data-role="chips"></div>
         </div>
         <div class="job-list" data-role="list"></div>` : html`
         <div class="empty">
@@ -147,16 +138,9 @@
 
     function renderList() {
       const listEl = $('[data-role="list"]', root);
-      const chipsEl = $('[data-role="chips"]', root);
       if (!listEl) return;
       const searched = tests.filter((t) => matches(t, query));
-      const counts = { all: searched.length };
-      C.statuses.forEach((s) => { counts[s.id] = searched.filter((t) => t.status === s.id).length; });
-      chipsEl.innerHTML = html`${[{ id: 'all', label: 'All' }].concat(C.statuses).map((s) => html`
-        <button type="button" class="chip${status === s.id ? ' active' : ''}" data-status="${s.id}" aria-pressed="${status === s.id}">
-          ${s.label} <span class="chip-count">${counts[s.id]}</span>
-        </button>`)}`;
-      const shown = searched.filter((t) => status === 'all' || t.status === status);
+      const shown = searched;
       if (!shown.length) {
         listEl.innerHTML = html`<p class="muted list-empty">No tests match${query ? html` “${query}”` : ''}.</p>`;
         return;
@@ -164,15 +148,16 @@
       listEl.innerHTML = html`${shown.map((t) => {
         const o = outcome(t, settings);
         const scans = (t.scans || []).length;
-        const meta = [fmtDate(t.date), t.pool && t.pool.body, scans ? plural(scans, 'scan') : ''].filter(Boolean).join(' · ');
+        const meta = [t.technician, scans ? plural(scans, 'scan') : 'No scans yet'].filter(Boolean).join(' · ');
+        const area = K.surfaceArea(t.pool || {});
+        const poolLine = [(t.pool && t.pool.body) || 'Pool', area ? Math.round(area).toLocaleString() + ' sq ft' : 'size not entered'].join(' · ');
         return html`
           <a class="job-card" href="#/test/${t.id}">
             <div class="job-card-top">
               <span class="job-no">${t.number || 'No number'}${t.sample ? html` <span class="pill pill-sample">Sample</span>` : ''}</span>
-              <span class="pill status-${t.status}">${C.label(C.statuses, t.status)}</span>
             </div>
-            <div class="job-cust">${(t.customer && t.customer.name) || 'Unnamed customer'}</div>
-            <div class="job-addr">${fullAddress(t.property) || 'No address yet'}</div>
+            <div class="job-cust">${fmtDate(t.date, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) || 'No date'}</div>
+            <div class="job-addr">${poolLine}</div>
             <div class="job-meta">
               <span>${meta}</span>
               ${o ? html`<span class="result-tag tone-${o.tone}">${o.text}</span>` : ''}
@@ -187,12 +172,6 @@
         btn.disabled = true;
         create(btn.dataset.act === 'sample').catch((err) => { btn.disabled = false; toast(err.message, 'error'); });
         return;
-      }
-      const chip = e.target.closest('[data-status]');
-      if (chip) {
-        status = chip.dataset.status;
-        session('lv.status', status);
-        renderList();
       }
     });
     root.addEventListener('input', (e) => {

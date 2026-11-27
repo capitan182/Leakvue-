@@ -10,12 +10,6 @@
     'rate for the day of the test.';
 
   LV.catalog = {
-    statuses: [
-      { id: 'scheduled', label: 'Scheduled' },
-      { id: 'in_progress', label: 'Testing' },
-      { id: 'completed', label: 'Completed' },
-    ],
-
     bodies: ['Pool', 'Spa', 'Pool + spa', 'Fountain', 'Pond / water feature'],
 
     shapes: [

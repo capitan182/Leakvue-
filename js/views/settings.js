@@ -75,7 +75,7 @@
           ${f('Leak margin (in/day)', 'margin', { inputmode: 'decimal', hint: 'Loss this close to evaporation counts as normal. 0.1 in/day is about 30 gal/day on a 16×32 pool.' })}
           ${f('Water cost ($ per 1,000 gal)', 'waterCost', { inputmode: 'decimal', placeholder: 'Leave blank to hide', hint: 'Shows homeowners a monthly cost. Check your local water rate.' })}
           ${f('Test number prefix', 'jobPrefix', { hint: nextNumberHint(settings) })}
-          ${f('Default technician', 'defaultTechnician', { hint: 'Filled in on new tests.' })}
+          ${f('Technician on this device', 'defaultTechnician', { hint: 'Filled in on every new test. It also updates when you type a name on a test.' })}
         </div>
       </section>
 

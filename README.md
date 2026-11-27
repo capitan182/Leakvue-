@@ -14,7 +14,7 @@ The current LeakVue app shows a graph that's hard for a homeowner to follow and 
 
 ## How a test works in the app
 
-1. **New test.** Enter the customer and the pool size (rectangle, oval, round, kidney, or a known surface area, plus an attached spa).
+1. **New test.** Enter the pool size (rectangle, oval, round, kidney, or a known surface area, plus an attached spa). No customer details are asked for; the technician name is remembered on each device after the first time it is typed.
 2. **Conditions.** Set normal evaporation for the day (default 0.25 in/day; raise it for hot, dry or windy days). Confirm auto-fill is off.
 3. **+ Pump ON scan.** Tap **Start 15:00 timer**; it chimes when the scan is done. Enter the water drop from LeakVue in inches.
 4. **+ Pump OFF scan.** Same again.

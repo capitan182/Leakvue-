@@ -22,8 +22,6 @@
     const a = K.analyze(t, s);
     const head = S.headline(a, s);
     const pat = S.pattern(a);
-    const customer = t.customer || {};
-    const prop = t.property || {};
     const cond = t.conditions || {};
     const pool = t.pool || {};
     const dateText = fmtDate(t.date, { year: 'numeric', month: 'long', day: 'numeric' });
@@ -31,7 +29,7 @@
     const contact = [s.phone, s.website].filter(Boolean).join(' · ');
 
     const prevTitle = document.title;
-    document.title = [t.number, customer.name, 'Pool Leak Test'].filter(Boolean).join(' – ');
+    document.title = [t.number, 'Pool Leak Test'].filter(Boolean).join(' – ');
 
     const brand = html`
       <div class="rc-brand">
@@ -44,7 +42,7 @@
     const foot = html`
       <footer class="rc-foot">
         <span>${s.companyName || ''}${contact ? ' · ' + contact : ''}</span>
-        <span>${customer.name || ''}${customer.name ? ' · ' : ''}${fmtDate(t.date)}</span>
+        <span>${fmtDate(t.date)}</span>
       </footer>`;
     const card = (cls, body) => html`<section class="rcard ${cls}">${body}${foot}</section>`;
 
@@ -53,7 +51,7 @@
     const summary = card('rc-summary', html`
       ${brand}
       <h2 class="rc-title">Pool leak test results</h2>
-      <p class="rc-sub">${[customer.name, prop.address].filter(Boolean).join(' · ')}${customer.name || prop.address ? html`<br>` : ''}${dateText}</p>
+      <p class="rc-sub">${dateText}</p>
       ${head.kind === 'pending' ? html`<p class="rc-sentence">${head.sentence}</p>` : html`
         <div class="hero${head.kind === 'normal' ? ' hero-ok' : ''}">
           <div class="hero-num">${head.big}</div>

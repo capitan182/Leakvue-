@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const LV = window.LV;
-  const { html, $, $$, debounce, toast, fullAddress, telHref, plural } = LV.util;
+  const { html, $, $$, debounce, toast, fmtDate, plural } = LV.util;
   const { field } = LV.form;
   const C = LV.catalog;
   const K = LV.calc;
@@ -11,15 +11,10 @@
   function normalize(t, settings) {
     const base = LV.model.newTest({}, settings);
     Object.keys(base).forEach((k) => { if (t[k] === undefined) t[k] = base[k]; });
-    ['customer', 'property', 'pool', 'conditions'].forEach((k) => { t[k] = Object.assign({}, base[k], t[k] || {}); });
+    ['pool', 'conditions'].forEach((k) => { t[k] = Object.assign({}, base[k], t[k] || {}); });
     if (!Array.isArray(t.scans)) t.scans = [];
     t.scans = t.scans.map((s) => Object.assign(LV.model.newScan({}, settings), s));
     return t;
-  }
-
-  function mapsHref(t) {
-    const addr = fullAddress(t.property);
-    return addr ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) : null;
   }
 
   /* ---------- audio + wake lock for the scan timer ---------- */
@@ -89,6 +84,14 @@
 
     const f = (label, path, o) => field(t, label, path, o);
     const analysis = () => K.analyze(t, settings);
+
+    // The name a tech types becomes this device's default, so every new test after this one is filled in.
+    const rememberTechnician = debounce(async (name) => {
+      name = (name || '').trim();
+      if (!name || name === settings.defaultTechnician) return;
+      settings.defaultTechnician = name;
+      try { await LV.db.saveSettings(settings); } catch (_) { /* not critical */ }
+    }, 800);
 
     /* ---------- pool ---------- */
     function poolDimsTpl() {
@@ -217,8 +220,8 @@
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
         <div class="job-head-title">
-          <h1 data-role="title">${t.customer.name || 'New test'}</h1>
-          <div class="muted small">${t.number}</div>
+          <h1>${t.number || 'New test'}</h1>
+          <div class="muted small" data-role="subtitle">${fmtDate(t.date)}</div>
         </div>
         <span class="save-state" data-role="save" data-state="saved" aria-live="polite">Saved</span>
         <a class="btn btn-primary" href="#/test/${t.id}/report">
@@ -232,27 +235,11 @@
       <datalist id="lv-isolations">${C.isolationSuggestions.map((s) => html`<option value="${s}"></option>`)}</datalist>
 
       <section class="card">
-        <h2>Customer & visit</h2>
+        <h2>Visit</h2>
         <div class="grid">
-          ${f('Customer name', 'customer.name', { autocomplete: 'off' })}
-          <div class="field">
-            <label for="f-customer-phone">Phone</label>
-            <div class="input-action">
-              <input id="f-customer-phone" type="tel" data-field="customer.phone" value="${t.customer.phone}" inputmode="tel" autocomplete="off">
-              <a class="btn btn-quiet btn-sm" data-role="call" href="${telHref(t.customer.phone) || '#'}" ${telHref(t.customer.phone) ? '' : 'hidden'}>Call</a>
-            </div>
-          </div>
-          ${f('Email', 'customer.email', { type: 'email', inputmode: 'email', autocomplete: 'off' })}
-          ${f('Street address', 'property.address', { full: true, autocomplete: 'off' })}
-          ${f('City', 'property.city', { autocomplete: 'off' })}
-          ${f('State', 'property.state', { autocomplete: 'off' })}
-          ${f('ZIP', 'property.zip', { inputmode: 'numeric', autocomplete: 'off' })}
           ${f('Date', 'date', { type: 'date' })}
           ${f('Technician', 'technician', { autocomplete: 'off' })}
-          ${f('Status', 'status', { type: 'select', options: C.statuses, blankLabel: false })}
-          ${f('Access notes', 'property.access', { full: true, placeholder: 'Gate code, dog, equipment location… (not on the report)' })}
         </div>
-        <a class="link-row" data-role="maps" target="_blank" rel="noopener" href="${mapsHref(t) || '#'}" ${mapsHref(t) ? '' : 'hidden'}>Open address in Maps ↗</a>
       </section>
 
       <section class="card">
@@ -361,19 +348,8 @@
     /* ---------- events ---------- */
     LV.form.bind(root, () => t, (path) => {
       touch();
-      if (path === 'customer.name') {
-        $('[data-role="title"]', root).textContent = t.customer.name || 'New test';
-      } else if (path === 'customer.phone') {
-        const a = $('[data-role="call"]', root);
-        const href = telHref(t.customer.phone);
-        a.hidden = !href;
-        if (href) a.href = href;
-      } else if (path.indexOf('property.') === 0) {
-        const a = $('[data-role="maps"]', root);
-        const href = mapsHref(t);
-        a.hidden = !href;
-        if (href) a.href = href;
-      }
+      if (path === 'date') $('[data-role="subtitle"]', root).textContent = fmtDate(t.date);
+      if (path === 'technician') rememberTechnician(t.technician);
       if (path === 'pool.shape' || path === 'pool.body') {
         $('[data-role="dims"]', root).innerHTML = poolDimsTpl();
       }
@@ -406,11 +382,6 @@
           pump = a.worst ? a.worst.scan.pump : 'on';
         }
         t.scans.push(LV.model.newScan({ pump, purpose }, settings));
-        if (t.status === 'scheduled') {
-          t.status = 'in_progress';
-          const sel = $('#f-status', root);
-          if (sel) sel.value = t.status;
-        }
         renderScans();
         renderResults();
         touch();
