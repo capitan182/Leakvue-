@@ -56,6 +56,28 @@
     }
   }
 
+  /**
+   * Save pictures and open the iOS share sheet ("Save N Images" puts them in Photos).
+   * images: [{ name, dataUrl }]. Resolves true when shared, false when the person closed the sheet.
+   */
+  async function shareImages(images, title) {
+    const fs = plugin('Filesystem');
+    const share = plugin('Share');
+    if (!fs || !share) throw new Error('Sharing is not available in this version of the app.');
+    const uris = [];
+    for (const im of images) {
+      const saved = await fs.writeFile({ path: im.name, data: im.dataUrl.split(',')[1], directory: 'CACHE' });
+      uris.push(saved.uri);
+    }
+    try {
+      await share.share({ title: title || 'Report pictures', files: uris });
+      return true;
+    } catch (err) {
+      if (/cancel/i.test(errText(err))) return false;
+      throw err;
+    }
+  }
+
   /** Stop (or allow again) the screen dimming and locking. A locked phone stops receiving readings. */
   function keepAwake(on) {
     const p = plugin('KeepAwake');
@@ -63,7 +85,7 @@
     Promise.resolve(on ? p.keepAwake() : p.allowSleep()).catch(() => { /* not critical */ });
   }
 
-  LV.native = { isNative, plugin, shareTextFile, keepAwake, errText };
+  LV.native = { isNative, plugin, shareTextFile, shareImages, keepAwake, errText };
 
   /* ---------- Bluetooth ---------- */
 

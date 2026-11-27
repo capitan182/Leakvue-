@@ -430,7 +430,7 @@ input, select, textarea { font: inherit; color: var(--text); }
 
 /* ---------- Homeowner report (always light: it gets screenshotted and texted) ---------- */
 body.is-report .appbar { position: static; }
-.report-toolbar { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.report-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .report-tip { color: var(--muted); font-size: .85rem; margin-bottom: 12px; text-align: center; }
 .report-cards {
   --viz-leak: #257de0; --viz-evap: #8893a0; --viz-ink: #142233; --viz-ink-2: #5a6878; --viz-grid: #e6eaef;
@@ -605,3 +605,4 @@ body.is-report .appbar { position: static; }
 }
 .field input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 @media (max-width: 330px) { .grid.visit-grid { grid-template-columns: 1fr; } }
+.report-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

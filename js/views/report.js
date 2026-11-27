@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const LV = window.LV;
-  const { html, raw, fmtDate } = LV.util;
+  const { html, raw, fmtDate, $$, toast, plural } = LV.util;
   const K = LV.calc;
   const S = LV.story;
 
@@ -155,11 +155,15 @@
       <div class="report-toolbar no-print">
         <a class="btn" href="#/test/${t.id}">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Edit test
+          Edit
         </a>
-        <button type="button" class="btn btn-primary" data-act="print">Print / Save PDF</button>
+        <div class="report-actions">
+          <button type="button" class="btn" data-act="print">Print / PDF</button>
+          <button type="button" class="btn btn-primary" data-act="pictures">Save pictures</button>
+        </div>
       </div>
-      <p class="report-tip no-print">Each card fits a phone screen. Screenshot any card to text it to the homeowner.</p>
+      <p class="report-tip no-print"><strong>Save pictures</strong> turns every card into a picture. Choose <em>Save Images</em> to put them in Photos,
+      then attach them to the ServiceTitan job or text them to the homeowner.</p>
       ${t.sample ? html`<p class="sample-banner no-print">Sample report with simulated readings.</p>` : ''}
       <div class="report-cards">
         ${summary}${compare}${steps}${graphs}${next}${details}
@@ -169,7 +173,33 @@
 
     root.addEventListener('click', (e) => {
       if (e.target.closest('[data-act="print"]')) window.print();
+      const btn = e.target.closest('[data-act="pictures"]');
+      if (btn && !btn.disabled) savePictures(btn);
     });
+
+    async function savePictures(btn) {
+      const label = btn.textContent;
+      btn.disabled = true;
+      try {
+        const base = (t.number || 'leak-test').replace(/[^\w-]+/g, '-');
+        const images = await LV.reportImages.render($$('.rcard', root), base, (i, n) => {
+          btn.textContent = 'Making picture ' + i + ' of ' + n + '…';
+        });
+        btn.textContent = label;
+        const title = 'Pool leak test ' + (t.number || '');
+        if (LV.native.isNative()) {
+          if (await LV.native.shareImages(images, title)) toast(plural(images.length, 'picture') + ' ready');
+        } else {
+          await LV.reportImages.shareOnWeb(images, title);
+        }
+      } catch (err) {
+        console.error(err);
+        toast('Could not make the pictures: ' + (err && err.message ? err.message : err), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    }
 
     return { destroy() { document.title = prevTitle; } };
   };

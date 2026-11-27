@@ -68,6 +68,8 @@ js/charts.js          loss bars, water-level graph, pool wall figure
 js/views/tests.js     test list, new/sample test
 js/views/test.js      tech screen: pool, scans, timer, live results
 js/views/report.js    homeowner report cards
+js/report-images.js   "Save pictures": each report card as a PNG (for Photos / ServiceTitan)
+js/vendor/            html2canvas 1.4.1 (MIT), loaded only when pictures are made
 js/views/settings.js  company details, test defaults, backup
 js/views/lab.js       Device Lab (iPhone app only): scan, connect, log, share
 js/app.js             router and startup
