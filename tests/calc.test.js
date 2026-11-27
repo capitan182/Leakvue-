@@ -62,6 +62,33 @@ a = C.analyze({ pool: {}, scans: [mk('on', 1.1)] }, S);
 assert.strictEqual(a.worst.result.leakGal, null);
 close(a.worst.result.leakIn, 0.85, 1e-9, 'leak in/day without size');
 
+// Water added during a scan (level rose): left out of every conclusion, never read as "not leaking"
+const up = (pump, inPerDay, extra) => mk(pump, -inPerDay, Object.assign({ id: 'up-' + pump + inPerDay }, extra));
+a = C.analyze({ pool, scans: [up('on', 0.5), up('off', 0.3)] }, S);
+assert.strictEqual(a.status, 'rising', 'every scan rose: test again, not "normal"');
+assert.strictEqual(a.risen.length, 2);
+assert.strictEqual(a.worst, null);
+a = C.analyze({ pool, scans: [up('on', 0.5), mk('off', 1.2)] }, S);
+assert.strictEqual(a.status, 'leak', 'a rising scan does not hide a real leak in another scan');
+assert.strictEqual(a.worst.scan.pump, 'off');
+assert.strictEqual(a.on, null, 'the rising pump-ON scan is not used for the pump pattern');
+assert.strictEqual(a.pattern, 'single');
+// a rescan never compares itself with a scan that had water added
+const upOn = up('on', 0.5);
+a = C.analyze({ pool, scans: [on, upOn, mk('on', 0.28, { id: 'r5', purpose: 'isolation', compareTo: upOn.id })] }, S);
+assert.strictEqual(a.steps[0].base.scan.id, on.id);
+// a rising rescan is ignored, so the test is still "leak", not "resolved"
+a = C.analyze({ pool, scans: [on, up('on', 0.2, { purpose: 'isolation', compareTo: on.id })] }, S);
+assert.strictEqual(a.steps.length, 0);
+assert.strictEqual(a.status, 'leak');
+// manual entry: the iPhone pad has no minus key, so "Up" flips the sign
+r = C.scanResult({ dropIn: '0.002', durationMin: 15, direction: 'up' }, ctx);
+assert.ok(r.rising);
+r = C.scanResult({ dropIn: '-0.002', durationMin: 15, direction: 'up' }, ctx);
+assert.ok(r.rising, 'a typed minus with Up is still a rise');
+r = C.scanResult({ dropIn: '0.002', durationMin: 15, direction: 'down' }, ctx);
+assert.ok(!r.rising);
+
 // Friendly rounding
 assert.strictEqual(C.fmtGal(4.44), '4.4');
 assert.strictEqual(C.fmtGal(47.6), '48');

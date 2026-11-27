@@ -133,7 +133,10 @@
       const a = analysis();
       const r = K.scanResult(s, { gpi: a.gpi, evap: a.evap, margin: a.margin });
       if (!r) return html`<span class="muted">Enter the water drop when the scan finishes.</span>`;
-      if (r.rising) return html`<span class="tone-warn">Water level rose. Check auto-fill, rain, swimmers or a running hose.</span>`;
+      if (r.rising) {
+        return html`<span class="tone-warn"><strong>Water level went up</strong>, so water was being added (auto-fill, hose, rain or
+          spillover from a spa or waterfall). This scan is left out of the results. Stop the water and scan again.</span>`;
+      }
       const total = r.totalGal != null ? html` · about <strong>${K.fmtGal(r.totalGal)} gal/day</strong> total` : '';
       const leak = r.isLeak
         ? html`<span class="tone-danger"><strong>${r.leakGal != null ? K.fmtGal(r.leakGal) + ' gal/day' : K.fmtIn(r.leakIn) + ' in/day'}</strong> more than normal evaporation</span>`
@@ -176,7 +179,14 @@
                   <p class="readings-note">Dropped <strong>${K.fmtIn(rate.dropIn, 4)} in</strong> over ${LV.charts.mmss(rate.durationMin * 60)} (${plural(s.readings.length, 'reading')})</p>
                 </div>` : html`
                 ${f('Scan length (min)', 'scans.' + i + '.durationMin', { inputmode: 'decimal' })}
-                ${f('Water drop (inches)', 'scans.' + i + '.dropIn', { inputmode: 'decimal', placeholder: 'e.g. 0.0115', hint: 'Use a minus sign if the level rose.' })}`}
+                <div class="field">
+                  <span class="field-label" id="dir-${s.id}">Water level went</span>
+                  <div class="seg-toggle" role="radiogroup" aria-labelledby="dir-${s.id}">
+                    <label><input type="radio" name="dir-${s.id}" value="down" data-field="scans.${i}.direction" ${s.direction !== 'up' ? 'checked' : ''}><span>Down</span></label>
+                    <label><input type="radio" name="dir-${s.id}" value="up" data-field="scans.${i}.direction" ${s.direction === 'up' ? 'checked' : ''}><span>Up</span></label>
+                  </div>
+                </div>
+                ${f('How much (inches)', 'scans.' + i + '.dropIn', { inputmode: 'decimal', placeholder: 'e.g. 0.0115', hint: 'Up means water was being added: that scan is left out.' })}`}
             </div>
             <div class="scan-foot">
               <p class="scan-result" data-role="result">${resultLine(s)}</p>
@@ -193,7 +203,13 @@
       if (!a.done.length) return html`<p class="muted small">Results appear here as you record scans.</p>`;
       const pat = S.pattern(a);
       const rows = S.baselineRows(a);
+      const risen = a.risen.length ? html`<div class="callout callout-warn">
+          <strong>${a.status === 'rising' ? 'Every scan had water added' : plural(a.risen.length, 'scan') + ' left out'}</strong>
+          <p>The level went up in scan ${a.risen.map((x) => x.index + 1).join(', ')}, so water was being added. Check the auto-fill, hoses and any
+          spillover, then scan again.${a.status === 'rising' ? ' The report asks the homeowner for a retest.' : ''}</p>
+        </div>` : '';
       return html`
+        ${risen}
         ${pat ? html`<div class="callout"><strong>${pat.title}</strong><p>${pat.body}</p></div>` : ''}
         ${rows.length ? LV.charts.lossBars(rows) : ''}
         ${a.steps.map((st) => {

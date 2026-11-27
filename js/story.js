@@ -124,6 +124,10 @@
   function plain(a, settings, body) {
     const thing = C.plain.things[body] || 'pool';
     if (!a.done.length) return { kind: 'pending', thing, lines: [], where: null };
+    if (a.status === 'rising') {
+      const r = C.plain.retest;
+      return { kind: 'retest', thing, verdict: r.verdict, lines: r.lines.slice(), where: null, short: '' };
+    }
     const w = a.worst && a.worst.result;
     if (!w || !w.isLeak) {
       const n = C.plain.normal;

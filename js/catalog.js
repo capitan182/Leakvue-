@@ -100,6 +100,16 @@
         'equipment pad': 'the pump, filter and heater area',
         'pool shell (below skimmer)': 'the pool itself, below the skimmer',
       },
+      // Every scan had water added (level went up), so there is no answer yet.
+      retest: {
+        verdict: 'We need to test again',
+        lines: [
+          'The water level went up during the test. That means water was being added: an auto-fill, a hose, rain, or water flowing over from a spa or waterfall.',
+          'Added water hides a leak, so this test can’t give a true answer.',
+          'Once nothing is adding water, we’ll test again.',
+        ],
+        picture: ['RETEST NEEDED', 'Water was being added', 'Auto-fill, hose or rain'],
+      },
       // Very short "where" lines for the wide ServiceTitan picture, which gets shrunk to a thumbnail.
       short: {
         pressure: 'Likely: return pipes or equipment',

@@ -365,6 +365,8 @@ input, select, textarea { font: inherit; color: var(--text); }
   padding: 12px 14px; margin-bottom: 14px;
 }
 .callout p { margin-top: 4px; font-size: .925rem; }
+.callout-warn { background: var(--warn-soft); border-color: transparent; }
+.callout-warn strong { color: var(--warn); }
 .callout-k { font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .step { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
 .step p { margin-top: 6px; }
@@ -614,6 +616,7 @@ body.is-report .appbar { position: static; }
 }
 .verdict-leak { background: #fdecea; color: #a52019; }
 .verdict-ok { background: #e6f4ed; color: #18794e; }
+.verdict-warn { background: #fdf1de; color: #8a5100; }
 .hero-pre { font-size: 1rem; font-weight: 650; color: #5a6878; margin-bottom: 2px; }
 .rc-lines { list-style: none; margin: 14px 0 4px; padding: 0; display: grid; gap: 10px; }
 .rc-lines li { font-size: 1.05rem; line-height: 1.4; padding-left: 16px; position: relative; }

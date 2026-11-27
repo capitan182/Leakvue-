@@ -36,6 +36,7 @@
         compareTo: '',
         durationMin: String((settings && settings.scanMinutes) || 15),
         dropIn: '',
+        direction: 'down', // manual entry: did the level go down or up?
         readings: null,
         timerStartedAt: null,
         createdAt: Date.now(),
@@ -87,6 +88,7 @@
     if (a.status === 'resolved') return { tone: 'ok', text: 'Leak isolated' };
     if (a.status === 'remaining') return { tone: 'warn', text: 'Still searching' };
     if (a.status === 'normal') return { tone: 'ok', text: 'Not leaking' };
+    if (a.status === 'rising') return { tone: 'warn', text: 'Retest: water was added' };
     const w = a.worst.result;
     return { tone: 'danger', text: 'Leak · ' + (w.leakGal != null ? K.fmtGal(w.leakGal) + ' gal/day' : K.fmtIn(w.leakIn) + ' in/day') };
   }

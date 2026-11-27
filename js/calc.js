@@ -80,9 +80,11 @@
         };
       }
     }
-    const drop = num(scan.dropIn);
+    let drop = num(scan.dropIn);
     const dur = num(scan.durationMin);
     if (drop == null || !dur || dur <= 0) return null;
+    // The iPhone number pad has no minus key, so a rise is entered as a size plus "Up".
+    if (scan.direction === 'up') drop = -Math.abs(drop);
     return { inPerDay: (drop / dur) * 1440, dropIn: drop, durationMin: dur, source: 'manual', fit: null };
   }
 
@@ -140,7 +142,11 @@
 
     const scans = (test.scans || []).map((scan, index) => ({ scan, index, result: scanResult(scan, ctx) }));
     const done = scans.filter((x) => x.result);
-    const baselines = done.filter((x) => x.scan.purpose !== 'isolation');
+    // A scan where the level went UP had water added (auto-fill, hose, rain, spillover from another
+    // body of water). It says nothing about a leak, so it's left out of every conclusion.
+    const risen = done.filter((x) => x.result.rising);
+    const valid = done.filter((x) => !x.result.rising);
+    const baselines = valid.filter((x) => x.scan.purpose !== 'isolation');
     const latest = (pump) => {
       const list = baselines.filter((x) => x.scan.pump === pump);
       return list.length ? list[list.length - 1] : null;
@@ -154,8 +160,8 @@
     let worst = null;
     baselines.forEach((x) => { if (!worst || x.result.leakIn > worst.result.leakIn) worst = x; });
 
-    const steps = done.filter((x) => x.scan.purpose === 'isolation').map((x) => {
-      let base = scans.find((y) => y.scan.id === x.scan.compareTo && y.result) || null;
+    const steps = valid.filter((x) => x.scan.purpose === 'isolation').map((x) => {
+      let base = valid.find((y) => y.scan.id === x.scan.compareTo) || null;
       if (!base) base = latest(x.scan.pump) || worst;
       const before = base ? base.result.leakIn : null;
       const after = x.result.leakIn;
@@ -171,13 +177,14 @@
     const last = steps.length ? steps[steps.length - 1] : null;
     let status;
     if (!done.length) status = 'pending';
+    else if (!valid.length) status = 'rising'; // every scan had water added: test again
     else if (last) status = last.resolved ? 'resolved' : 'remaining';
     else status = worst && worst.result.isLeak ? 'leak' : 'normal';
 
     return {
       area, gpi, evap, margin,
       evapGal: gpi == null ? null : evap * gpi,
-      scans, done, baselines, on, off, worst, steps,
+      scans, done, valid, risen, baselines, on, off, worst, steps,
       autoPattern, pattern, status,
       rangeDiffers: !!(on && off && autoPattern !== 'structure' && autoPattern !== 'none'),
     };

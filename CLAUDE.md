@@ -35,6 +35,10 @@ It's an electronic bucket test built on a stilling well:
 
 Air left in the tube, a float near the edge of the zone, or a bumped canister are the likely real-world causes of bad or frozen readings.
 
+## Scans where the level goes UP (owner, 27 Nov 2026)
+
+Scans can come out + (level rose) as well as −: an auto-fill or hose left on, rain, or water moving between bodies (spa spillover). A rise means water was being added, so it says nothing about a leak. `scanResult` marks it `rising`; `analyze` leaves rising scans out of baselines, rescans, the pump pattern and the worst case (`a.valid` / `a.risen`), and if every scan rose the status is `'rising'`. The tech screen flags it on the scan and in Results; the homeowner report says **"We need to test again"** (`C.plain.retest`), never "not leaking"; the ServiceTitan picture says RETEST NEEDED. Manual entry has a Down/Up switch (`scan.direction`) because the iPhone decimal keypad has no minus key; a typed minus still works.
+
 ## The readings contract (where Bluetooth plugs in)
 
 A scan is an object in `test.scans[]` (see `LV.model.newScan` in `js/views/tests.js`):

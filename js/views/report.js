@@ -56,6 +56,9 @@
       <h2 class="rc-title">Your ${p.thing} leak test</h2>
       <p class="rc-sub">${dateText}</p>
       ${p.kind === 'pending' ? html`<p class="rc-sentence">The results will show here once the test is done.</p>` : ''}
+      ${p.kind === 'retest' ? html`
+        <div class="verdict verdict-warn">${raw(ICONS.warn)} ${p.verdict}</div>
+        <ul class="rc-lines">${p.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ''}
       ${p.kind === 'normal' ? html`
         <div class="verdict verdict-ok">${raw(ICONS.ok)} ${p.verdict}</div>
         ${p.big ? html`<div class="hero hero-ok">
@@ -151,7 +154,8 @@
           <td>${S.scanName(x)}</td>
           <td>${LV.charts.mmss(x.result.durationMin * 60)}</td>
           <td>${K.fmtIn(x.result.dropIn, 4)}″</td>
-          <td>${K.fmtIn(x.result.totalIn)}″${x.result.totalGal != null ? html`<br><span class="muted">${K.fmtGal(x.result.totalGal)} gal</span>` : ''}</td>
+          <td>${x.result.rising ? html`Rose<br><span class="muted">water added, not used</span>`
+            : html`${K.fmtIn(x.result.totalIn)}″${x.result.totalGal != null ? html`<br><span class="muted">${K.fmtGal(x.result.totalGal)} gal</span>` : ''}`}</td>
         </tr>`)}</tbody>
       </table>` : ''}
       <dl class="rc-dl">

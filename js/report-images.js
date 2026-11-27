@@ -110,7 +110,8 @@
     c.height = H;
     const ctx = c.getContext('2d');
     const leak = p.kind === 'leak';
-    const accent = leak ? '#b3261e' : p.kind === 'normal' ? '#18794e' : '#5a6878';
+    const accent = leak ? '#b3261e' : p.kind === 'normal' ? '#18794e' : p.kind === 'retest' ? '#9a5b00' : '#5a6878';
+    const retest = p.kind === 'retest' ? LV.catalog.plain.retest.picture : null;
     const maxW = W - PAD * 2;
 
     ctx.fillStyle = '#ffffff';
@@ -120,7 +121,7 @@
     ctx.textBaseline = 'alphabetic';
 
     // 1. Verdict
-    const verdict = leak ? 'LEAK FOUND' : p.kind === 'normal' ? 'NOT LEAKING' : 'TEST NOT FINISHED';
+    const verdict = leak ? 'LEAK FOUND' : p.kind === 'normal' ? 'NOT LEAKING' : retest ? retest[0] : 'TEST NOT FINISHED';
     ctx.fillStyle = accent;
     fit(ctx, verdict, '800', 150, 80, maxW);
     ctx.fillText(verdict, PAD, 230);
@@ -129,6 +130,7 @@
     let amount = '';
     if (leak) amount = (p.qual === 'Up to' ? 'Up to ' : '') + p.big + ' ' + (p.unit || '').replace(' of water', '');
     else if (p.kind === 'normal' && p.big) amount = 'Drops ' + p.big + ' inches a week';
+    else if (retest) amount = retest[1];
     if (amount) {
       ctx.fillStyle = '#142233';
       fit(ctx, amount, '800', 170, 70, maxW);
@@ -136,10 +138,11 @@
     }
 
     // 3. Where
-    if (p.short && p.kind !== 'pending') {
+    const third = retest ? retest[2] : p.kind !== 'pending' ? p.short : '';
+    if (third) {
       ctx.fillStyle = '#0a4f94';
-      fit(ctx, p.short, '700', 104, 56, maxW);
-      ctx.fillText(p.short, PAD, 660);
+      fit(ctx, third, '700', 104, 56, maxW);
+      ctx.fillText(third, PAD, 660);
     }
 
     // Small print (fine if it ends up too small to read in the PDF)
