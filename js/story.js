@@ -213,5 +213,38 @@
     return out;
   }
 
-  LV.story = { pumpLabel, bodyName, signedIn, settingLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
+  /**
+   * One little graph per test for the homeowner report (owner's layout, 27 Nov 2026): a title like
+   * "Pool on", the water level during that test, and the amount below in red (leak) or green.
+   * Scans where water was being added are left out. In the order the tech ran them.
+   * [{ title, inches (loss a day), leak, points: [[seconds, levelChangeInches]], seconds }]
+   */
+  function scanBlocks(test, settings) {
+    const blocks = [];
+    K.analyzeAll(test, settings).forEach(({ body, a }) => {
+      const name = bodyName(test, body.id);
+      a.valid.forEach((x) => {
+        const s = x.scan;
+        let title;
+        if (s.purpose === 'isolation') {
+          title = (s.isolated || 'A line') + ' closed off';
+        } else {
+          title = (C.plain.scanTitles[C.conditionOf(s).id] || '{body}').replace('{body}', name);
+        }
+        const r = x.result;
+        let points;
+        const rd = Array.isArray(s.readings) && s.readings.length >= 3 ? s.readings : null;
+        if (rd) {
+          const step = Math.max(1, Math.floor(rd.length / 80));
+          points = rd.filter((_, i) => i % step === 0 || i === rd.length - 1).map((p) => [p[0] - rd[0][0], p[1] - rd[0][1]]);
+        } else {
+          points = [[0, 0], [r.durationMin * 60, -r.dropIn]]; // typed in: a straight line over the scan
+        }
+        blocks.push({ index: x.index, title, inches: r.totalIn, leak: r.isLeak, points, seconds: r.durationMin * 60 });
+      });
+    });
+    return blocks.sort((p, q) => p.index - q.index);
+  }
+
+  LV.story = { pumpLabel, bodyName, signedIn, scanBlocks, settingLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
 })();

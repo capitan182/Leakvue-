@@ -636,6 +636,16 @@ body.is-report .appbar { position: static; }
 .rc-why { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: #f5f7fa; font-size: 1rem; }
 .rc-why span { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5a6878; margin-bottom: 2px; }
 .rc-technical { display: contents; }
+/* One card per test: title, line graph, amount in red (leak) or green (normal) */
+.rc-scan-title { font-size: 1.6rem; font-weight: 800; letter-spacing: -.01em; margin-bottom: 8px; }
+.rc-scan-svg { display: block; width: 100%; height: auto; }
+.rc-scan-amount { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 10px; font-size: 1.1rem; font-weight: 600; }
+.rc-scan-amount strong { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rc-scan-amount.is-leak { color: #b3261e; }
+.rc-scan-amount.is-ok { color: #18794e; }
+.rc-scan-tag { font-size: .85rem; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; padding: 3px 10px; border-radius: 999px; }
+.is-leak .rc-scan-tag { background: #fdecea; }
+.is-ok .rc-scan-tag { background: #e6f4ed; }
 .rc-body-tag {
   align-self: flex-start; font-size: .78rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase;
   color: #0a4f94; background: #e7f0fa; border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;

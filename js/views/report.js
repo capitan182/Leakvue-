@@ -102,6 +102,39 @@
         <ul class="rc-lines">${p.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ''}
     `);
 
+    /* 1b. One card per test (owner's layout): a title like "Pool on", a line graph of the water level
+       during that test, and the amount below in red (leaking) or green (normal). Short and wide, so
+       it stays readable when ServiceTitan shrinks a screenshot. Every graph uses the same scale, so a
+       steeper line really is a faster drop. */
+    const blocks = S.scanBlocks(t, s);
+    const maxSec = Math.max(60, ...blocks.map((b) => b.seconds));
+    const maxDrop = Math.max(0.0005, ...blocks.map((b) => Math.max(...b.points.map((q) => -q[1]))));
+    function scanSvg(b) {
+      const W = 320, H = 132, L = 6, R = 14, T = 26, B = 22;
+      const x = (sec) => L + (sec / maxSec) * (W - L - R);
+      const y = (d) => T + (-d / maxDrop) * (H - T - B);
+      const color = b.leak ? '#b3261e' : '#18794e';
+      const pts = b.points.map((q) => x(q[0]).toFixed(1) + ',' + y(q[1]).toFixed(1)).join(' ');
+      const last = b.points[b.points.length - 1];
+      const mins = Math.round(b.seconds / 60);
+      return raw(`<svg class="rc-scan-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Water level during the test">
+        <rect x="0" y="0" width="${W}" height="${H}" rx="10" fill="#f5f7fa"/>
+        <line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="#8893a0" stroke-width="1.5" stroke-dasharray="5 5"/>
+        <text x="${L + 4}" y="${y(0) - 7}" font-size="11" fill="#5a6878" font-family="-apple-system, system-ui, sans-serif">Water level at the start</text>
+        <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${x(last[0])}" cy="${y(last[1])}" r="5" fill="${color}"/>
+        <text x="${W - R}" y="${H - 6}" font-size="11" fill="#5a6878" text-anchor="end" font-family="-apple-system, system-ui, sans-serif">${mins} min</text>
+      </svg>`);
+    }
+    const scanCards = blocks.map((b) => card('rc-scan', html`
+      <h2 class="rc-scan-title">${b.title}</h2>
+      ${scanSvg(b)}
+      <div class="rc-scan-amount ${b.leak ? 'is-leak' : 'is-ok'}">
+        <strong>${S.signedIn(b.inches)}</strong> inches a day
+        <span class="rc-scan-tag">${b.leak ? 'Leaking' : 'Normal'}</span>
+      </div>
+    `));
+
     /* 2. Where is it? (one card per leaking body of water) */
     const whereCard = (w, name) => card('rc-where', html`
       ${name ? html`<div class="rc-body-tag">${name}</div>` : ''}
@@ -230,7 +263,7 @@
         Add the technical pages (graphs and numbers) for someone who wants them
       </label>
       <div class="report-cards">
-        ${answer}${where}${nextPlain}
+        ${answer}${scanCards}${where}${nextPlain}
         <div class="rc-technical" data-role="technical" ${t.reportDetail ? '' : 'hidden'}>${technical}</div>
       </div>
     `;

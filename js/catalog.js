@@ -119,6 +119,12 @@
         'equipment pad': 'the pump, filter and heater area',
         'pool shell (below skimmer)': 'the pool itself, below the skimmer',
       },
+      // Titles over each little graph on the report, the way techs say them ("Pool on", "Spa off").
+      // {body} is Pool, Spa, Fountain…
+      scanTitles: {
+        off: '{body} off', on: '{body} on', feature: 'Water feature on', spa: 'Spa jets on',
+        cleaner: 'Cleaner on', floor: 'Floor system on', 'basin-on': 'Basin pump on', 'basin-off': 'Basin pump off',
+      },
       // Every scan had water added (level went up), so there is no answer yet.
       retest: {
         verdict: 'We need to test again',
