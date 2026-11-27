@@ -1,11 +1,13 @@
-/* Leakvue — homeowner report. A stack of cards, each sized for a phone screen so any one of them
-   can be screenshotted and texted on its own. "Print / Save PDF" gives the whole thing. */
+/* Leakvue — homeowner report. Three plain cards (is it leaking and how much, where, what next), each
+   sized for a phone screen so it can be screenshotted on its own. The technical pages (bars, graphs,
+   numbers) are added only when the tech switches them on. */
 (function () {
   'use strict';
   const LV = window.LV;
   const { html, raw, fmtDate, $$, toast, plural } = LV.util;
   const K = LV.calc;
   const S = LV.story;
+  const C = LV.catalog;
 
   const ICONS = {
     ok: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -20,7 +22,6 @@
       return {};
     }
     const a = K.analyze(t, s);
-    const head = S.headline(a, s);
     const pat = S.pattern(a);
     const cond = t.conditions || {};
     const pool = t.pool || {};
@@ -46,29 +47,50 @@
       </footer>`;
     const card = (cls, body) => html`<section class="rcard ${cls}">${body}${foot}</section>`;
 
-    /* 1. Summary */
-    const lastStep = a.steps.length ? a.steps[a.steps.length - 1] : null;
-    const summary = card('rc-summary', html`
+    /* ---------- The homeowner report: three plain cards ---------- */
+    const p = S.plain(a, s, pool.body);
+
+    /* 1. Is it leaking, and how much? */
+    const answer = card('rc-answer', html`
       ${brand}
-      <h2 class="rc-title">Pool leak test results</h2>
+      <h2 class="rc-title">Your ${p.thing} leak test</h2>
       <p class="rc-sub">${dateText}</p>
-      ${head.kind === 'pending' ? html`<p class="rc-sentence">${head.sentence}</p>` : html`
-        <div class="hero${head.kind === 'normal' ? ' hero-ok' : ''}">
-          <div class="hero-num">${head.big}</div>
-          <div class="hero-unit">${head.unit ? head.unit + ' leaking' : 'water loss'}</div>
+      ${p.kind === 'pending' ? html`<p class="rc-sentence">The results will show here once the test is done.</p>` : ''}
+      ${p.kind === 'normal' ? html`
+        <div class="verdict verdict-ok">${raw(ICONS.ok)} No leak found</div>
+        <p class="rc-plain">${p.lines[0]}</p>` : ''}
+      ${p.kind === 'leak' ? html`
+        <div class="verdict verdict-leak">Yes, your ${p.thing} is leaking</div>
+        <div class="hero">
+          <div class="hero-pre">${p.qual}</div>
+          <div class="hero-num">${p.big}</div>
+          <div class="hero-unit">${p.unit}</div>
         </div>
-        <p class="rc-sentence">${head.sentence}</p>
-        ${a.status === 'resolved' ? html`<div class="badge badge-ok">${raw(ICONS.ok)} Leak isolated: ${lastStep.scan.isolated || 'see below'}</div>` : ''}
-        ${a.status === 'remaining' ? html`<div class="badge badge-warn">${raw(ICONS.warn)} Still searching for another leak</div>` : ''}
-        ${head.stats && head.stats.length ? html`<div class="stats">${head.stats.map((x) => html`<div class="stat"><div class="stat-v">${x.value}</div><div class="stat-l">${x.label}</div></div>`)}</div>` : ''}
-        ${head.kind === 'leak' && head.week > 0 ? html`
-          <div class="rc-wall">
-            ${LV.charts.wallFigure(head.week / 7, a.evap)}
-            <p class="small">Only about ${K.fmtIn(Math.min(head.week, a.evap * 7), 1)}″ of that weekly drop is normal evaporation.</p>
-          </div>` : ''}
-        ${head.stats && head.stats.some((x) => /\*$/.test(x.label)) ? html`<p class="fine">*Estimated at $${s.waterCost} per 1,000 gallons. Your water rate may differ.</p>` : ''}
-      `}
+        <ul class="rc-lines">${p.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ''}
     `);
+
+    /* 2. Where is it? */
+    const where = p.where ? card('rc-where', html`
+      <h2 class="rc-title">${p.where.title}</h2>
+      ${p.where.spot ? html`<p class="rc-spot">${p.where.spot}</p>` : ''}
+      ${p.where.detail ? html`<p class="rc-plain">${p.where.detail}</p>` : ''}
+      ${p.where.why ? html`<p class="rc-why"><span>How we know</span>${p.where.why}</p>` : ''}
+    `) : '';
+
+    /* 3. What happens next (with the fine print) */
+    const nextPlain = card('rc-next', html`
+      ${brand}
+      <h2 class="rc-title">What happens next</h2>
+      <p class="rc-message">${t.message || C.plain.nextDefault}</p>
+      <div class="rc-contact">
+        ${t.technician ? html`<div><span class="muted">Your technician</span><strong>${t.technician}</strong></div>` : ''}
+        ${s.phone ? html`<div><span class="muted">Questions? Call</span><strong>${s.phone}</strong></div>` : ''}
+      </div>
+      ${s.disclaimer ? html`<p class="fine">${s.disclaimer}</p>` : ''}
+      <p class="fine">Report ${t.number}</p>
+    `);
+
+    /* ---------- Technical pages (off unless the tech switches them on) ---------- */
 
     /* 2. Pump on vs off */
     const rows = S.baselineRows(a);
@@ -115,19 +137,6 @@
         </div>`)}
     `) : '';
 
-    /* 5. Next steps */
-    const next = (t.message || t.technician || s.phone) ? card('rc-next', html`
-      ${brand}
-      <h2 class="rc-title">Next steps</h2>
-      ${t.message ? html`<p class="rc-message">${t.message}</p>` : ''}
-      <div class="rc-contact">
-        ${t.technician ? html`<div><span class="muted">Your technician</span><strong>${t.technician}</strong></div>` : ''}
-        ${s.phone ? html`<div><span class="muted">Call</span><strong>${s.phone}</strong></div>` : ''}
-        ${s.email ? html`<div><span class="muted">Email</span><strong>${s.email}</strong></div>` : ''}
-        ${s.license ? html`<div><span class="muted">License</span><strong>${s.license}</strong></div>` : ''}
-      </div>
-    `) : '';
-
     /* 6. Details: the numbers behind every chart */
     const details = card('rc-details', html`
       <h2 class="rc-title">Test details</h2>
@@ -148,7 +157,6 @@
         <div><dt>Auto-fill</dt><dd>${cond.autofillOff ? 'Off during test' : 'Not confirmed off'}</dd></div>
         <div><dt>Report #</dt><dd>${t.number}</dd></div>
       </dl>
-      ${s.disclaimer ? html`<p class="fine">${s.disclaimer}</p>` : ''}
     `);
 
     root.innerHTML = html`
@@ -165,8 +173,13 @@
       <p class="report-tip no-print">Screenshot any card, or tap <strong>Save to Photos</strong> to save every card as a picture at once
       (then choose <em>Save Images</em>). Upload them from Photos to your report.</p>
       ${t.sample ? html`<p class="sample-banner no-print">Sample report with simulated readings.</p>` : ''}
+      <label class="check report-detail no-print">
+        <input type="checkbox" data-act="detail" ${t.reportDetail ? 'checked' : ''}>
+        Add the technical pages (graphs and numbers) for someone who wants them
+      </label>
       <div class="report-cards">
-        ${summary}${compare}${steps}${graphs}${next}${details}
+        ${answer}${where}${nextPlain}
+        <div class="rc-technical" data-role="technical" ${t.reportDetail ? '' : 'hidden'}>${compare}${steps}${graphs}${details}</div>
       </div>
     `;
     LV.charts.enhance(root);
@@ -176,13 +189,19 @@
       const btn = e.target.closest('[data-act="pictures"]');
       if (btn && !btn.disabled) savePictures(btn);
     });
+    root.addEventListener('change', (e) => {
+      if (e.target.dataset.act !== 'detail') return;
+      t.reportDetail = e.target.checked;
+      $$('[data-role="technical"]', root).forEach((el) => { el.hidden = !t.reportDetail; });
+      LV.db.saveTest(t).catch(() => {});
+    });
 
     async function savePictures(btn) {
       const label = btn.textContent;
       btn.disabled = true;
       try {
         const base = (t.number || 'leak-test').replace(/[^\w-]+/g, '-');
-        const images = await LV.reportImages.render($$('.rcard', root), base, (i, n) => {
+        const images = await LV.reportImages.render($$('.rcard', root).filter((el) => el.offsetParent !== null), base, (i, n) => {
           btn.textContent = 'Making picture ' + i + ' of ' + n + '…';
         });
         btn.textContent = label;

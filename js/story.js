@@ -108,5 +108,73 @@
     return a.pattern ? C.patterns[a.pattern] : null;
   }
 
-  LV.story = { pumpLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount };
+  function roundTubs(n) {
+    if (n >= 10) return String(Math.round(n));
+    const r = Math.round(n * 2) / 2; // halves read easier than tenths
+    return r === Math.floor(r) ? String(r) : (Math.floor(r) || '') + '½';
+  }
+  function partDetail(name) {
+    return (C.plain.parts[String(name || '').trim().toLowerCase()] || '');
+  }
+
+  /**
+   * The homeowner report in plain words.
+   * { kind: pending|normal|leak, qual, big, unit, lines[], where: { title, spot, detail, why } | null }
+   */
+  function plain(a, settings, body) {
+    const thing = C.plain.things[body] || 'pool';
+    if (!a.done.length) return { kind: 'pending', thing, lines: [], where: null };
+    const w = a.worst && a.worst.result;
+    if (!w || !w.isLeak) return { kind: 'normal', thing, lines: [C.plain.noLeak.replace('{thing}', thing)], where: null };
+
+    const out = { kind: 'leak', thing, qual: a.rangeDiffers ? 'Up to' : 'About', lines: [] };
+    if (w.leakGal != null) {
+      out.big = K.fmtGal(w.leakGal);
+      out.unit = 'gallons of water a day';
+      const tubs = K.bathtubs(w.leakGal);
+      if (tubs >= 0.75) out.lines.push('That’s about ' + roundTubs(tubs) + ' bathtub' + (tubs < 1.25 ? '' : 's') + ' of water, every day.');
+      else out.lines.push('That’s about ' + K.fmtGal(w.leakGal * 30) + ' gallons a month.');
+      const cost = K.num(settings.waterCost);
+      if (cost) {
+        const month = (w.leakGal * 30 / 1000) * cost;
+        out.lines.push('About $' + (month >= 100 ? Math.round(month / 5) * 5 : Math.round(month)).toLocaleString() +
+          ' a month on your water bill.');
+      }
+    } else {
+      out.big = K.fmtIn(w.leakIn);
+      out.unit = 'inches of water a day';
+    }
+    if (w.totalIn > 0) {
+      out.lines.push('It’s why your water level drops about ' + K.fmtIn(w.totalIn * 7, 1) + ' inches a week.');
+    }
+
+    const last = a.steps.length ? a.steps[a.steps.length - 1] : null;
+    if (a.status === 'resolved' && last) {
+      const name = last.scan.isolated || 'the line we closed off';
+      out.where = {
+        title: 'We found where it’s leaking',
+        spot: name,
+        detail: partDetail(name) ? 'That’s ' + partDetail(name) + '.' : '',
+        why: 'When we closed it off, the leak stopped.',
+      };
+    } else if (a.status === 'remaining' && last) {
+      const name = last.scan.isolated || 'that line';
+      out.where = {
+        title: 'We’re narrowing it down',
+        spot: '',
+        detail: last.outcome === 'unchanged'
+          ? 'Closing off the ' + name.toLowerCase() + ' made no difference, so the leak is somewhere else. We’re still looking.'
+          : 'Closing off the ' + name.toLowerCase() + ' slowed the leak but didn’t stop it, so there is likely a second leak. We’re still looking.',
+        why: '',
+      };
+    } else if (a.pattern && C.plain.where[a.pattern]) {
+      const p = C.plain.where[a.pattern];
+      out.where = { title: 'Where it’s most likely leaking', spot: p.spot, detail: '', why: p.why };
+    } else {
+      out.where = null;
+    }
+    return out;
+  }
+
+  LV.story = { pumpLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
 })();

@@ -50,8 +50,8 @@
         technician: settings.defaultTechnician || 'Sample Tech',
         pool: { body: 'Pool', shape: 'rectangle', length: '32', width: '16', width2: '', diameter: '', area: '', spaArea: '' },
         conditions: { evaporation: '0.25', weather: '94°F, sunny, light breeze', autofillOff: true },
-        message: 'We plugged the return lines and the pool stopped losing more than normal evaporation, so the leak is in the return plumbing. ' +
-                 'Next step: pressure test each return line to pinpoint the break, then repair.',
+        message: 'When we closed off the pipes that carry water back into your pool, the leak stopped. ' +
+                 'Next, we test each of those pipes to find the exact spot, then fix it.',
         notes: 'Sample data. Delete this test whenever you like.',
       }, settings);
       const start = Date.now() - 3600 * 1000;

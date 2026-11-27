@@ -20,6 +20,7 @@ See README.md for the user-facing description and file map.
 - Homeowner wording lives in `js/catalog.js` and `js/story.js`, so the tech screen and report always say the same thing.
 - Charts are hand-written HTML/SVG in `js/charts.js`. Colours were validated for colour-blind safety: blue `#257de0` = leak, gray `#8893a0` = normal evaporation. Keep those meanings.
 - The report (`js/views/report.js`) is always light, and each card should fit one phone screen (about 650–700 px tall at 390 px wide).
+- **The homeowner report must stay simple (owner, 27 Nov 2026: "homeowners don't understand what's going on").** By default it is three plain cards: (1) is it leaking and how much (verdict, gallons a day, one or two everyday comparisons: bathtubs, inches the level drops a week, monthly water cost if set), (2) where (the part in everyday words from `C.plain.parts`, or the pump on/off conclusion from `C.plain.where`, plus one "how we know" line), (3) what happens next (tech's message, tech, phone, fine print). No charts, legends, tables, evaporation splits or jargon on those cards. The old bars, rescans, graphs and numbers table are "technical pages" behind a per-test switch (`t.reportDetail`), off by default. Plain wording lives in `C.plain` (catalog.js) and `LV.story.plain()` (story.js). The tech screen still shows the full technical picture.
 - When you add or rename a JS file, update the `<script>` list in `index.html` and the `ASSETS` list in `sw.js`, and bump `VERSION` in `sw.js`.
 
 ## How a LeakVue test is set up (from the owner, 26 Nov 2026)

@@ -70,6 +70,42 @@
       },
     },
 
+    /* The homeowner report, in the plainest words we can find. No jargon, one idea per line. */
+    plain: {
+      // Where the leak most likely is, from the pump ON / OFF comparison.
+      where: {
+        pressure: {
+          spot: 'The pipes that carry water back into your pool, or the pool equipment',
+          why: 'It leaked more while the pump was running.',
+        },
+        suction: {
+          spot: 'The pipes that pull water out of your pool (from the skimmer or the main drain)',
+          why: 'It leaked more while the pump was off.',
+        },
+        structure: {
+          spot: 'The pool itself: a light, a fitting, the skimmer, or a crack',
+          why: 'Turning the pump on or off made no difference.',
+        },
+      },
+      // What each part a tech can isolate is, for someone who has never looked at their plumbing.
+      parts: {
+        'main drain': 'the drain at the bottom of your pool and its pipe',
+        'skimmer line': 'the pipe from the skimmer, the box at the edge of the pool that catches leaves',
+        'return lines': 'the pipes that carry water back into your pool',
+        'spa return lines': 'the pipes that carry water back into your spa',
+        'light niche': 'the housing around your pool light',
+        'cleaner line': 'the pipe that runs your pool cleaner',
+        'waterfall / feature line': 'the pipe that feeds your waterfall or water feature',
+        'spillover': 'where the spa spills over into the pool',
+        'equipment pad': 'the pump, filter and heater area',
+        'pool shell (below skimmer)': 'the pool itself, below the skimmer',
+      },
+      // What to call it in a sentence, from "What are we testing?"
+      things: { 'Pool': 'pool', 'Spa': 'spa', 'Pool + spa': 'pool', 'Fountain': 'fountain', 'Pond / water feature': 'water feature' },
+      noLeak: 'Good news: we did not find a leak. Your {thing} is only losing what the sun and wind normally take.',
+      nextDefault: 'Your technician will go over the next steps with you.',
+    },
+
     diagnosisOptions: [
       { id: '', label: 'Automatic (from the pump ON / OFF scans)' },
       { id: 'pressure', label: 'Pressure side (return lines / equipment)' },
