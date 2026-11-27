@@ -145,7 +145,7 @@
         verdict: 'Your {thing} is not leaking',
         pre: 'Your water level drops about',
         lines: [
-          'That’s evaporation. Sun, heat and wind take water from every {thing}, every day.',
+          'That’s about {week} inches a week, and it’s evaporation. Sun, heat and wind take water from every {thing}, every day.',
           'Our test measured how fast your water drops. A leak would make it drop faster than evaporation, and yours didn’t.',
           'Splashing, swimmers, backwashing the filter and waterfalls can make it drop a little more.',
         ],

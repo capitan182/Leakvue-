@@ -128,8 +128,8 @@
 
     // 2. How much
     let amount = '';
-    if (leak) amount = (p.qual === 'Up to' ? 'Up to ' : '') + p.big + ' ' + (p.unit || '').replace(' of water', '');
-    else if (p.kind === 'normal' && p.big) amount = 'Drops ' + p.big + ' inches a week';
+    if (leak) amount = (p.qual === 'Up to' ? 'Up to ' : '') + p.big + ' inches a day';
+    else if (p.kind === 'normal' && p.big) amount = 'Drops ' + p.big + ' inches a day';
     else if (retest) amount = retest[1];
     if (amount) {
       ctx.fillStyle = '#142233';

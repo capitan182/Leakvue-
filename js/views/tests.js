@@ -91,7 +91,7 @@
     if (a.status === 'normal') return { tone: 'ok', text: 'Not leaking' };
     if (a.status === 'rising') return { tone: 'warn', text: 'Retest: water was added' };
     const w = a.worst.result;
-    return { tone: 'danger', text: 'Leak · ' + (w.leakGal != null ? K.fmtGal(w.leakGal) + ' gal/day' : K.fmtIn(w.leakIn) + ' in/day') };
+    return { tone: 'danger', text: 'Leak · ' + K.fmtIn(w.totalIn) + ' in/day' };
   }
 
   async function create(sample) {

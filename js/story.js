@@ -139,34 +139,33 @@
         thing,
         verdict: n.verdict.replace('{thing}', thing),
         pre: n.pre,
-        big: w && w.totalIn > 0 ? K.fmtIn(w.totalIn * 7, 1) : null,
-        unit: 'inches a week',
-        lines: n.lines.map((l) => l.replace('{thing}', thing)),
+        big: w && w.totalIn > 0 ? K.fmtIn(w.totalIn) : null,
+        unit: 'inches a day',
+        lines: n.lines.map((l) => l.replace('{thing}', thing)
+          .replace('{week}', w && w.totalIn > 0 ? K.fmtIn(w.totalIn * 7, 1) : '')),
         where: null,
         short: C.plain.short.noLeak,
       };
     }
 
+    // Inches a day is the standard (owner, 27 Nov 2026): the big number is how fast the water level
+    // drops, the same figure the LeakVue reports. Gallons only when the size was entered.
     const out = { kind: 'leak', thing, qual: a.rangeDiffers ? 'Up to' : 'About', lines: [] };
+    out.big = K.fmtIn(w.totalIn);
+    out.unit = 'inches a day';
+    out.lines.push('Normal evaporation is only about ' + K.fmtIn(a.evap) + ' inches a day.');
     if (w.leakGal != null) {
-      out.big = K.fmtGal(w.leakGal);
-      out.unit = 'gallons of water a day';
       const tubs = K.bathtubs(w.leakGal);
-      if (tubs >= 0.75) out.lines.push('That’s about ' + roundTubs(tubs) + ' bathtub' + (tubs < 1.25 ? '' : 's') + ' of water, every day.');
-      else out.lines.push('That’s about ' + K.fmtGal(w.leakGal * 30) + ' gallons a month.');
+      out.lines.push('The leak alone is about ' + K.fmtGal(w.leakGal) + ' gallons a day' +
+        (tubs >= 0.75 ? ', about ' + roundTubs(tubs) + ' bathtub' + (tubs < 1.25 ? '' : 's') + ' of water.' : '.'));
       const cost = K.num(settings.waterCost);
       if (cost) {
         const month = (w.leakGal * 30 / 1000) * cost;
         out.lines.push('About $' + (month >= 100 ? Math.round(month / 5) * 5 : Math.round(month)).toLocaleString() +
           ' a month on your water bill.');
       }
-    } else {
-      out.big = K.fmtIn(w.leakIn);
-      out.unit = 'inches of water a day';
     }
-    if (w.totalIn > 0) {
-      out.lines.push('It’s why your water level drops about ' + K.fmtIn(w.totalIn * 7, 1) + ' inches a week.');
-    }
+    out.lines.push('Your water level drops about ' + K.fmtIn(w.totalIn * 7, 1) + ' inches a week.');
 
     const last = a.steps.length ? a.steps[a.steps.length - 1] : null;
     if (a.status === 'resolved' && last) {
