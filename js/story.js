@@ -125,7 +125,20 @@
     const thing = C.plain.things[body] || 'pool';
     if (!a.done.length) return { kind: 'pending', thing, lines: [], where: null };
     const w = a.worst && a.worst.result;
-    if (!w || !w.isLeak) return { kind: 'normal', thing, lines: [C.plain.noLeak.replace('{thing}', thing)], where: null };
+    if (!w || !w.isLeak) {
+      const n = C.plain.normal;
+      return {
+        kind: 'normal',
+        thing,
+        verdict: n.verdict.replace('{thing}', thing),
+        pre: n.pre,
+        big: w && w.totalIn > 0 ? K.fmtIn(w.totalIn * 7, 1) : null,
+        unit: 'inches a week',
+        lines: n.lines.map((l) => l.replace('{thing}', thing)),
+        where: null,
+        short: C.plain.short.noLeak,
+      };
+    }
 
     const out = { kind: 'leak', thing, qual: a.rangeDiffers ? 'Up to' : 'About', lines: [] };
     if (w.leakGal != null) {

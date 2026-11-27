@@ -57,8 +57,13 @@
       <p class="rc-sub">${dateText}</p>
       ${p.kind === 'pending' ? html`<p class="rc-sentence">The results will show here once the test is done.</p>` : ''}
       ${p.kind === 'normal' ? html`
-        <div class="verdict verdict-ok">${raw(ICONS.ok)} No leak found</div>
-        <p class="rc-plain">${p.lines[0]}</p>` : ''}
+        <div class="verdict verdict-ok">${raw(ICONS.ok)} ${p.verdict}</div>
+        ${p.big ? html`<div class="hero hero-ok">
+          <div class="hero-pre">${p.pre}</div>
+          <div class="hero-num">${p.big}</div>
+          <div class="hero-unit">${p.unit}</div>
+        </div>` : ''}
+        <ul class="rc-lines">${p.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ''}
       ${p.kind === 'leak' ? html`
         <div class="verdict verdict-leak">Yes, your ${p.thing} is leaking</div>
         <div class="hero">

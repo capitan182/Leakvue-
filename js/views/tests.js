@@ -86,7 +86,7 @@
     if (a.status === 'pending') return null;
     if (a.status === 'resolved') return { tone: 'ok', text: 'Leak isolated' };
     if (a.status === 'remaining') return { tone: 'warn', text: 'Still searching' };
-    if (a.status === 'normal') return { tone: 'ok', text: 'No leak' };
+    if (a.status === 'normal') return { tone: 'ok', text: 'Not leaking' };
     const w = a.worst.result;
     return { tone: 'danger', text: 'Leak · ' + (w.leakGal != null ? K.fmtGal(w.leakGal) + ' gal/day' : K.fmtIn(w.leakIn) + ' in/day') };
   }

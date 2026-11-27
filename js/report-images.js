@@ -120,7 +120,7 @@
     ctx.textBaseline = 'alphabetic';
 
     // 1. Verdict
-    const verdict = leak ? 'LEAK FOUND' : p.kind === 'normal' ? 'NO LEAK FOUND' : 'TEST NOT FINISHED';
+    const verdict = leak ? 'LEAK FOUND' : p.kind === 'normal' ? 'NOT LEAKING' : 'TEST NOT FINISHED';
     ctx.fillStyle = accent;
     fit(ctx, verdict, '800', 150, 80, maxW);
     ctx.fillText(verdict, PAD, 230);
@@ -128,7 +128,7 @@
     // 2. How much
     let amount = '';
     if (leak) amount = (p.qual === 'Up to' ? 'Up to ' : '') + p.big + ' ' + (p.unit || '').replace(' of water', '');
-    else if (p.kind === 'normal') amount = LV.catalog.plain.short.noLeak;
+    else if (p.kind === 'normal' && p.big) amount = 'Drops ' + p.big + ' inches a week';
     if (amount) {
       ctx.fillStyle = '#142233';
       fit(ctx, amount, '800', 170, 70, maxW);
@@ -136,7 +136,7 @@
     }
 
     // 3. Where
-    if (leak && p.short) {
+    if (p.short && p.kind !== 'pending') {
       ctx.fillStyle = '#0a4f94';
       fit(ctx, p.short, '700', 104, 56, maxW);
       ctx.fillText(p.short, PAD, 660);

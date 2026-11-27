@@ -106,11 +106,21 @@
         suction: 'Likely: skimmer or main drain pipes',
         structure: 'Likely: the pool itself (light, fitting, shell)',
         remaining: 'Still looking for a second leak',
-        noLeak: 'Normal evaporation only',
+        noLeak: 'Evaporation from sun and wind',
       },
       // What to call it in a sentence, from "What are we testing?"
       things: { 'Pool': 'pool', 'Spa': 'spa', 'Pool + spa': 'pool', 'Fountain': 'fountain', 'Pond / water feature': 'water feature' },
-      noLeak: 'Good news: we did not find a leak. Your {thing} is only losing what the sun and wind normally take.',
+      // No leak. Never say "no leak found": the homeowner called because the water IS going down, so
+      // agree with what they've seen and explain where it goes (owner, 27 Nov 2026).
+      normal: {
+        verdict: 'Your {thing} is not leaking',
+        pre: 'Your water level drops about',
+        lines: [
+          'That’s evaporation. Sun, heat and wind take water from every {thing}, every day.',
+          'Our test measured how fast your water drops. A leak would make it drop faster than evaporation, and yours didn’t.',
+          'Splashing, swimmers, backwashing the filter and waterfalls can make it drop a little more.',
+        ],
+      },
       nextDefault: 'Your technician will go over the next steps with you.',
     },
 
