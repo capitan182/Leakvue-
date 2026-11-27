@@ -236,7 +236,7 @@
 
       <section class="card">
         <h2>Visit</h2>
-        <div class="grid">
+        <div class="grid visit-grid">
           ${f('Date', 'date', { type: 'date' })}
           ${f('Technician', 'technician', { autocomplete: 'off' })}
         </div>
