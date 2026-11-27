@@ -33,6 +33,8 @@
     outOfZone: false, // latest frame said the float is out of the testing zone
     slow: false,      // latest frame had no packet number (ALD Sensor Details / old app's Delta screen)
     active: null,     // { testId, scanId, start, durationSec, readings, skipped, base, sink }
+    recent: [],       // last ~45 s of [seconds, inches] for the "settled" light
+    errTimes: [],     // Date.now() of out-of-zone frames in the last 10 s
   };
   const listeners = new Set();
   const sinks = new Map(); // testId -> fn(active)
@@ -90,7 +92,7 @@
       }
       st.device = device;
       await LV.ble.subscribe(id, device.service, device.characteristic, onValue);
-      set({ status: 'connected', connectedAt: Date.now(), level: null, lastAt: 0, outOfZone: false, slow: false, message: '' });
+      set({ status: 'connected', connectedAt: Date.now(), level: null, lastAt: 0, outOfZone: false, slow: false, message: '', recent: [], errTimes: [] });
       tickTimer = tickTimer || setInterval(() => emit('tick'), 1000);
     } catch (err) {
       set({ status: 'error', message: 'Could not connect: ' + LV.native.errText(err), device: null });
@@ -133,7 +135,13 @@
     st.lastAt = now;
     st.slow = r.counter == null;
     st.outOfZone = !!r.error;
-    if (!r.error) st.level = r.inches;
+    st.errTimes = st.errTimes.filter((x) => now - x < 10000);
+    if (r.error) st.errTimes.push(now);
+    else {
+      st.level = r.inches;
+      st.recent.push([now / 1000, r.inches]);
+      while (st.recent.length && st.recent[0][0] < now / 1000 - 45) st.recent.shift();
+    }
     const a = st.active;
     if (a) {
       if (r.error) a.skipped++;
@@ -184,6 +192,7 @@
       const s = t && (t.scans || []).find((x) => x.id === a.scanId);
       if (!s) { if (st.active === a) stopRecording('gone'); return; }
       s.readings = a.readings.slice();
+      s.skipped = a.skipped;
       await LV.db.saveTest(t);
     } catch (err) { console.error('Saving readings failed', err); }
   }
@@ -202,6 +211,9 @@
     state: () => st,
     quiet: () => connected() && Date.now() - (st.lastAt || st.connectedAt || 0) > QUIET_MS,
     heard: () => st.lastAt > 0,
+    recent: () => st.recent,
+    // One stray out-of-zone frame is normal; several in 10 s means the float is at the edge.
+    zoneTrouble: () => st.outOfZone || st.errTimes.filter((x) => Date.now() - x < 10000).length >= 3,
     recordingScan: () => (st.active ? st.active.scanId : null),
   };
 })();

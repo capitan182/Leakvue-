@@ -120,4 +120,69 @@ assert.strictEqual(C.fmtGal(47.6), '48');
 assert.strictEqual(C.fmtGal(272.4), '270');
 assert.strictEqual(C.fmtGal(8173), '8,170');
 
+// Steadiness of recorded scans, and the "settled" light
+{
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+  // ~4.77 readings a second; level(t) in inches, higher = more water
+  const make = (sec, level, every) => { const r = []; for (let t = 0; t <= sec; t += every || 0.21) r.push([Math.round(t * 100) / 100, level(t)]); return r; };
+  const leak = (inPerDay) => (t) => -inPerDay * t / 86400;
+  const codes = (q) => q.issues.map((x) => x.code + ':' + x.level).sort().join(' ');
+
+  let q = C.scanQuality(make(900, (t) => leak(1)(t) + rnd() * 4e-6));
+  assert.strictEqual(q.grade, 'good', 'clean scan ' + codes(q));
+  assert.ok(q.thirds.every((r) => Math.abs(r - 1) < 0.02), 'thirds agree: ' + q.thirds);
+  assert.ok(q.plusMinus < 0.02);
+
+  q = C.scanQuality(make(900, (t) => leak(1)(t) + rnd() * 0.006));
+  assert.ok(q.issues.some((x) => x.code === 'bounce' && x.level === 'poor'), 'bouncy: ' + codes(q));
+
+  q = C.scanQuality(make(900, (t) => leak(1)(t) + (t > 300 ? -0.003 : 0)));
+  const j = q.issues.find((x) => x.code === 'jump');
+  assert.ok(j && Math.abs(j.at - 300) < 3 && j.count === 1, 'bump at 5:00: ' + JSON.stringify(j));
+  assert.strictEqual(q.grade, 'poor');
+  assert.ok(!q.issues.some((x) => x.code === 'bounce'), 'a bump is not bounce');
+
+  // one glitch reading (seen on the LeakVue 2) is not a jump
+  const g = make(900, leak(1)); g[2000][1] -= 0.07;
+  q = C.scanQuality(g);
+  assert.strictEqual(q.grade, 'good', 'single glitch ignored: ' + codes(q));
+
+  // canister still catching up for the first couple of minutes
+  q = C.scanQuality(make(900, (t) => leak(1)(t) + 0.004 * Math.exp(-t / 60)));
+  assert.ok(q.issues.some((x) => x.code === 'settling'), 'settling: ' + codes(q));
+
+  // rate drifts from 0.5 to 1.5 in/day (air bubble warming, say)
+  q = C.scanQuality(make(900, (t) => -(0.5 * t + (1 / 900) * t * t / 2) / 86400));
+  assert.ok(q.issues.some((x) => x.code === 'rate'), 'drift: ' + codes(q));
+
+  // 20 s with no readings
+  q = C.scanQuality(make(900, leak(1)).filter((p) => p[0] < 400 || p[0] > 420));
+  assert.ok(q.issues.some((x) => x.code === 'gap' && x.level === 'fair' && Math.abs(x.at - 400) < 1), 'gap: ' + codes(q));
+
+  // out of the testing zone
+  assert.strictEqual(C.scanQuality(make(900, leak(1)), { skipped: 300 }).issues.find((x) => x.code === 'zone').level, 'poor');
+  assert.strictEqual(C.scanQuality(make(900, leak(1)), { skipped: 2 }).issues.find((x) => x.code === 'zone').level, 'info');
+  assert.strictEqual(C.scanQuality(make(900, leak(1)), { skipped: 2 }).grade, 'good');
+
+  // too short to judge; short scans skip the thirds
+  assert.strictEqual(C.scanQuality(make(20, leak(1))), null);
+  assert.strictEqual(C.scanQuality(make(120, leak(1))).thirds, null);
+
+  // settled light
+  assert.strictEqual(C.settleCheck(make(10, leak(1))).state, 'checking');
+  assert.strictEqual(C.settleCheck(make(40, leak(1))).state, 'settled');
+  assert.strictEqual(C.settleCheck(make(40, (t) => 0.01 * Math.exp(-t / 60))).state, 'moving', 'catching up');
+  assert.strictEqual(C.settleCheck(make(40, (t) => leak(1)(t) + rnd() * 0.004)).state, 'bouncing');
+  // slow mode (a reading every 1.2 s) still settles
+  assert.strictEqual(C.settleCheck(make(40, leak(0.5), 1.23)).state, 'settled');
+  // clock-time seconds (as the live light gets them) give the same answer
+  const clock = make(40, leak(1)).map((p) => [p[0] + 1795000000, p[1] + 14.9]);
+  const sc = C.settleCheck(clock);
+  assert.strictEqual(sc.state, 'settled');
+  assert.ok(Math.abs(sc.rate - 1) < 1e-3, 'rate with clock times ' + sc.rate);
+  close(C.fitLine(clock).slope, -1 / 86400, 1e-12, 'fit with big numbers');
+  console.log('steadiness tests passed');
+}
+
 console.log('calc tests passed');

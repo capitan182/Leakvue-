@@ -677,3 +677,21 @@ body.is-report .appbar { position: static; }
 .record-btn { font-variant-numeric: tabular-nums; }
 .record-btn.running { background: var(--danger-soft, #fdecec); border-color: var(--danger, #c62828); color: var(--danger, #c62828); }
 .btn-link { background: none; border: 0; padding: 0; margin-left: 6px; color: var(--brand); text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* Steadiness: the "settled" light and each scan's score */
+.settle { display: flex; align-items: baseline; gap: 6px; padding: 6px 10px; border-radius: var(--radius-sm); font-size: 0.95em; }
+.settle-dot, .q-dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.settle-ok { background: var(--ok-soft); color: var(--ok); }
+.settle-wait { background: var(--warn-soft); color: var(--warn); }
+.settle-check { color: var(--muted, inherit); }
+.settle-check .settle-dot { opacity: 0.4; }
+.quality { margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.quality p { margin: 0; }
+.quality .q-dot { margin-right: 7px; vertical-align: 1px; }
+.quality ul { margin: 6px 0 0; padding-left: 20px; font-size: 0.92em; }
+.quality li + li { margin-top: 3px; }
+.q-good .q-dot { color: var(--ok); }
+.q-fair { border-color: var(--warn); }
+.q-fair .q-dot { color: var(--warn); }
+.q-poor { border-color: var(--danger); background: var(--danger-soft); }
+.q-poor .q-dot { color: var(--danger); }

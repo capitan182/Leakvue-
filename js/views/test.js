@@ -214,7 +214,8 @@
             <p><span class="dot-live" aria-hidden="true"></span><strong>${r.device.name}</strong> connected <span class="muted">· LeakVue ${r.device.model}</span></p>
             <button type="button" class="btn btn-quiet btn-sm" data-act="lv-disconnect">Disconnect</button>
           </div>
-          <p class="small" data-role="device-live">${live}${R.recordingScan() ? html` <strong>Recording scan ${scanNo || ''}.</strong>` : ''}</p>`;
+          <p class="small" data-role="device-live">${live}${R.recordingScan() ? html` <strong>Recording scan ${scanNo || ''}.</strong>` : ''}</p>
+          ${settleTpl()}`;
       }
       if (r.status === 'finding' || r.status === 'connecting') return html`<p class="small muted">Looking for the LeakVue…</p>`;
       if (r.status === 'choose') {
@@ -228,6 +229,39 @@
         </div>
         ${r.message ? html`<p class="small ${r.status === 'error' || r.status === 'none' ? 'tone-warn' : ''}">${r.message}</p>` : ''}`;
     }
+    /* ---------- steadiness ---------- */
+    function settleTpl() {
+      if (!R.heard() || R.quiet() || R.recordingScan() || R.zoneTrouble()) return '';
+      const c = K.settleCheck(R.recent());
+      if (c.state === 'settled') return html`<p class="settle settle-ok" data-role="settle"><span class="settle-dot"></span><strong>Settled.</strong> OK to press Test.</p>`;
+      if (c.state === 'moving') return html`<p class="settle settle-wait" data-role="settle"><span class="settle-dot"></span><strong>Still settling.</strong> The level is moving fast; give it a minute.</p>`;
+      if (c.state === 'bouncing') return html`<p class="settle settle-wait" data-role="settle"><span class="settle-dot"></span><strong>Bouncing.</strong> Check for wind, a bump, or air in the tube.</p>`;
+      return html`<p class="settle settle-check" data-role="settle"><span class="settle-dot"></span>Checking it's settled… ${c.wait > 0 ? c.wait + ' s' : ''}</p>`;
+    }
+    const GRADE = { good: 'Steady', fair: 'Some wobble', poor: 'Unsteady: think about a rescan' };
+    const mmss = (sec) => LV.charts.mmss(sec);
+    function issueText(x, q) {
+      switch (x.code) {
+        case 'bounce': return 'Readings bounced about ±' + x.value.toFixed(4) + '″: wind, waves, pump vibration or a bump.';
+        case 'jump': return 'Sudden jump at ' + mmss(x.at) + (x.count > 1 ? ' (' + x.count + ' jumps)' : '') + ': the canister may have been bumped or the float caught.';
+        case 'settling': return 'The start didn’t match the rest: the canister was still catching up. Wait for the green light before pressing Test.';
+        case 'rate': return 'The rate changed during the scan (' + K.fmtIn(q.thirds[0]) + ' → ' + K.fmtIn(q.thirds[2]) + ' in/day): air in the tube or the sun warming it can do this.';
+        case 'gap': return 'No readings for ' + Math.round(x.value) + ' s at ' + mmss(x.at) + '.';
+        case 'zone': return plural(x.value, 'reading') + ' out of the testing zone ' + (x.value === 1 ? 'was' : 'were') + ' left out.';
+        default: return '';
+      }
+    }
+    function qualityTpl(s) {
+      if (R.recordingScan() === s.id || !s.readings || s.readings.length < 3) return '';
+      const q = K.scanQuality(s.readings, { skipped: s.skipped });
+      if (!q) return '';
+      return html`
+        <div class="quality q-${q.grade}">
+          <p><span class="q-dot"></span><strong>Steadiness: ${GRADE[q.grade]}</strong>${q.plusMinus != null ? html` <span class="muted">· rate ±${K.fmtIn(q.plusMinus)} in/day</span>` : ''}</p>
+          ${q.issues.length ? html`<ul>${q.issues.map((x) => html`<li>${issueText(x, q)}</li>`)}</ul>` : ''}
+        </div>`;
+    }
+
     function readingsNoteTpl(s, rate) {
       const a = R.state().active;
       if (a && a.scanId === s.id) {
@@ -278,6 +312,7 @@
               <p class="scan-result" data-role="result">${resultLine(s)}</p>
               <div class="scan-actions">${recordTpl(s)}${timerTpl(s)}</div>
             </div>
+            ${qualityTpl(s)}
             <div data-role="chart">${rate ? LV.charts.levelChart(s.readings, rate.fit, { title: S.scanName({ scan: s, index: i }) }) : ''}</div>
           </article>`;
       })}`;
@@ -601,6 +636,7 @@
         const s = t.scans.find((x) => x.id === btn.dataset.id);
         if (!s || !confirm('Clear the LeakVue readings on this scan? You can type the drop in instead.')) return;
         s.readings = null;
+        s.skipped = 0;
         touch();
         renderScans();
         renderResults();
@@ -640,6 +676,7 @@
       const s = t.scans.find((x) => x.id === a.scanId);
       if (!s) return;
       s.readings = a.readings;
+      s.skipped = a.skipped;
       touch();
       updateLive(s);
       updateResultLines();
