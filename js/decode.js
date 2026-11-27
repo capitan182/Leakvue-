@@ -138,14 +138,15 @@
    * ~5 readings a second. The exact px→inch scale still needs a calibration capture; a leak test
    * only cares about the change over time, where the big constant offset cancels out. */
   const LEAKVUE_DATA_UUID = '0783b03e-8535-b5a0-7140-a304d2495cb8';
-  /* PROVISIONAL, to confirm (see CLAUDE.md):
-   * - px = raw / 2^24 (a fixed-point number with 24 fractional bits) is a guess at the ALD app's "px".
-   *   Still water read 132.3264 px; the float pushed bottom..top on the bench spanned 132.17..136.25 px.
-   * - inches per px: the ALD app's clean June 10 scan (14:29 long, 3×3 ft) shows −6.13 gal and
-   *   −49.96741 px; −6.13 gal ÷ (9 sqft × 0.623) = −1.0933 in → 0.02188 in/px. (A 2-minute test full of
-   *   hand-made spikes gave 0.157, ignored as unreliable.) */
+  /* Units (see CLAUDE.md):
+   * - The ALD app's "px" → inches: 1 px = 0.02113 in. Seven History Details screens (in, gal, px, length)
+   *   agree on this once their px figure is scaled by scanLength/15 min: three full 15:00 scans give
+   *   0.021133 exactly, the shorter ones 0.02109–0.02113 (display rounding). See aldInchesPerDay().
+   * - px = raw / 2^24 is still a GUESS at matching their px. Still water read 132.3264 px; the float
+   *   pushed bottom..top on the bench spanned 132.17..136.25 px (≈ 0.09 in). Confirm with the live
+   *   Delta on the ALD Sensor Details screen. */
   const LEAKVUE_PX_SCALE = 16777216;
-  const LEAKVUE_IN_PER_PX = 0.02188;
+  const LEAKVUE_IN_PER_PX = 0.02113;
   function leakvue(bytes) {
     if (!bytes || bytes.length < 5) return null;
     const counter = bytes[4];
@@ -153,6 +154,16 @@
     const raw = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0; // 32-bit big-endian, unsigned
     return { counter, error: false, raw, px: raw / LEAKVUE_PX_SCALE, status: bytes[0] };
   }
+  /**
+   * The ALD app's "~24hr" inches from the px figure on its History Details screen. Their px figure is
+   * scaled as if every scan were 15 minutes long, so a shorter scan needs × (15 min / scan length).
+   * Inches and gallons on that screen are consistent with each other (gal = in × sqft × 0.623).
+   */
+  function aldInchesPerDay(pxShown, scanSeconds) {
+    if (!isFinite(pxShown) || !(scanSeconds > 0)) return null;
+    return pxShown * LEAKVUE_IN_PER_PX * (900 / scanSeconds);
+  }
+
   /** How many readings the counter skipped between two frames (0..255 wrap). 1 = none lost. */
   function leakvueGap(prevCounter, counter) {
     return (counter - prevCounter) & 0xff;
@@ -166,7 +177,7 @@
 
   const api = {
     hexToBytes, bytesToHex, ascii, looksLikeText, trials, trialsLine, normUuid, shortUuid, uuidName, fmtFloat, isFirmwareService,
-    leakvue, leakvueGap, LEAKVUE_DATA_UUID, LEAKVUE_PX_SCALE, LEAKVUE_IN_PER_PX,
+    leakvue, leakvueGap, aldInchesPerDay, LEAKVUE_DATA_UUID, LEAKVUE_PX_SCALE, LEAKVUE_IN_PER_PX,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

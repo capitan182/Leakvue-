@@ -101,5 +101,24 @@ assert.strictEqual(D.leakvue([0x84, 0x00, 0x00, 0x00, 0x01]).px, 132);
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
 close(D.leakvue([0x84, 0x53, 0x8d, 0x9d, 0x86]).px, 132.32638, 1e-5, 'still-water px');
 assert.strictEqual(D.leakvue([0xff, 0x7f, 0xff, 0xff, 0x1c]).px, null);
-close(1 * D.LEAKVUE_IN_PER_PX, 0.02188, 1e-9, 'in per px');
+close(1 * D.LEAKVUE_IN_PER_PX, 0.02113, 1e-9, 'in per px');
 console.log('leakvue px tests passed');
+
+// The owner's ALD History Details screens: px figure + scan length -> inches/day, checked against the
+// inches implied by the gallons shown (gal / (sqft x 0.623)), which carry more digits than the inches.
+const ALD = [ // [px shown, scan seconds, gallons, sqft]
+  [5.94424, 511, 16.52, 120],    // May 26, 8:31, 15x8
+  [1.06293, 600, 18.87, 900],    // June 3, 10:00, 30x30
+  [63.85312, 900, 1261.01, 1500],// June 4 10:18, 25x60
+  [74.22552, 900, 1465.85, 1500],// June 4 10:38, 25x60
+  [31.79114, 900, 376.70, 900],  // June 9, 30x30
+  [49.96741, 869, 6.13, 9],      // June 10, 14:29, 3x3
+  [0.89290, 121, 78.52, 900],    // Nov 26 3:53 PM, 2:01, 30x30
+];
+for (const [px, sec, gal, sqft] of ALD) {
+  const expected = gal / (sqft * 0.623);
+  const got = D.aldInchesPerDay(px, sec);
+  assert.ok(Math.abs(got - expected) / expected < 0.003, `ALD ${px}px over ${sec}s: ${got} vs ${expected}`);
+}
+assert.strictEqual(D.aldInchesPerDay(1, 0), null);
+console.log('ALD px-to-inch tests passed');
