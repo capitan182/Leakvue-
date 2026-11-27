@@ -232,9 +232,9 @@
           <div class="lab-reading ${ch.decoded.error ? 'is-err' : ''}">
             ${ch.decoded.error ? 'Float out of the testing zone (no reading)'
               : html`Change since zero <strong>${fmtIn((ch.level - ch.lbase) * ch.decoded.inPerUnit)}</strong>`}
-            <span class="muted small">packet ${ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}${ch.errs ? ' · ' + ch.errs + ' sensor errors' : ''}</span>
+            <span class="muted small">${ch.decoded.counter == null ? 'slow mode (old app\'s Delta screen)' : 'packet ' + ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}${ch.errs ? ' · ' + ch.errs + ' sensor errors' : ''}</span>
           </div>
-          ${ch.lbase != null ? html`<div class="muted small">LeakVue ${ch.model} · ${ch.decoded.unitText || ''} · inches are approximate until confirmed · ${plural(ch.count, 'reading')}</div>` : ''}
+          ${ch.lbase != null ? html`<div class="muted small">LeakVue ${ch.model} · ${ch.decoded.unitText || ''} · ${ch.model === 1 ? 'inches match the old app\'s Delta' : 'inches are approximate until confirmed'} · ${plural(ch.count, 'reading')}</div>` : ''}
           ${!ch.decoded.error ? html`<button type="button" class="btn btn-sm lab-read" data-act="zero" data-key="${ch.key}">Zero here</button>` : ''}` : ''}
         ${ch.props.read && !ch.firmware && S.conn && S.conn.status === 'connected' ? html`
           <button type="button" class="btn btn-sm lab-read" data-act="read" data-key="${ch.key}" ${S.conn.busy || S.conn.stalled ? 'disabled' : ''}>Read</button>` : ''}
@@ -467,7 +467,7 @@
       const d = readingOf(ch, bytes);
       if (d) {
         ch.decoded = d;
-        if (ch.lastCounter != null) {
+        if (ch.lastCounter != null && d.counter != null) {
           const gap = D.leakvueGap(ch.lastCounter, d.counter);
           if (gap !== 1) ch.drops = (ch.drops || 0) + (gap > 1 ? gap - 1 : 0);
         }
@@ -479,7 +479,7 @@
           if (ch.lmin == null || d.raw < ch.lmin) ch.lmin = d.raw;
           if (ch.lmax == null || d.raw > ch.lmax) ch.lmax = d.raw;
         }
-        hint = d.error ? '  level=OUT-OF-ZONE' : '  level=' + d.raw + ' ' + d.unitText + ' packet=' + d.counter;
+        hint = d.error ? '  level=OUT-OF-ZONE' : '  level=' + d.raw + ' ' + d.unitText + (d.counter == null ? '' : ' packet=' + d.counter);
       }
     }
     log(kind, ch.alias + ' #' + ch.count + extra + ' ' + valueText(bytes) + hint, t);
@@ -737,7 +737,7 @@
       if (ch.level == null) return '';
       const since = c.connectedAt ? ' t+' + ((Date.now() - c.connectedAt) / 1000).toFixed(1) + 's' : '';
       return '  [LeakVue ' + ch.model + ' raw=' + ch.level + ' ' + (ch.decoded.unitText || '') +
-        ' packet=' + ch.decoded.counter + since + ']';
+        (ch.decoded.counter == null ? '' : ' packet=' + ch.decoded.counter) + since + ']';
     }
     return '';
   }
@@ -749,7 +749,7 @@
     if (ch.model === 1) {
       const d = D.leakvue1(bytes);
       if (!d) return null;
-      return { counter: d.counter, error: d.error, raw: d.value, unitText: d.error ? '' : d.value.toFixed(3) + ' units', inPerUnit: 1 / D.LEAKVUE1_UNITS_PER_INCH };
+      return { counter: d.counter, error: d.error, raw: d.value, unitText: d.error ? '' : d.value.toFixed(3) + ' units', inPerUnit: D.LEAKVUE1_IN_PER_UNIT };
     }
     const d = D.leakvue(bytes);
     if (!d) return null;

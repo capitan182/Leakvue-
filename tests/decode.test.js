@@ -139,8 +139,21 @@ console.log('ALD px-to-inch tests passed');
   v = D.leakvue1([0, 0, 0, 0, 0x20]);
   assert.strictEqual(v.error, true, 'zero = no reading');
   assert.strictEqual(D.leakvue1([1, 2]), null);
-  // Align-picture pieces are not readings
-  assert.strictEqual(D.leakvue1([0xe7, 0x25, 0xb4, 0x43]), null, '4-byte level before a picture');
+  // 4-byte frames (Delta screen and Align picture) are levels without a packet counter
+  v = D.leakvue1([0xe7, 0x25, 0xb4, 0x43]);
+  assert.strictEqual(v.counter, null);
+  assert.ok(Math.abs(v.value - 360.296) < 1e-3, '4-byte level ' + v.value);
+  // other lengths are not readings
+  assert.strictEqual(D.leakvue1([0x01]), null, 'battery byte on the Delta screen');
   assert.strictEqual(D.leakvue1(new Array(20).fill(5)), null, '20-byte picture piece');
+  // The old app's live Delta (inches), 27 Nov 2026 23:17 recording: after Clear at level 315.732,
+  // Delta = (level - 315.732) x 0.00022, to the 5 decimals it shows.
+  const f32 = (x) => { const b = new DataView(new ArrayBuffer(4)); b.setFloat32(0, x, true); return [0, 1, 2, 3].map((i) => b.getUint8(i)); };
+  const zero = D.leakvue1(f32(315.732)).inches;
+  for (const [level, delta] of [[313.714, -0.00044], [315.897, 0.00004], [335.605, 0.00437], [339.118, 0.00514],
+    [370.294, 0.01200], [366.056, 0.01107], [394.382, 0.01730], [401.796, 0.01893]]) {
+    const got = D.leakvue1(f32(level)).inches - zero;
+    assert.ok(Math.abs(got - delta) <= 0.000006, `Delta at ${level}: ${got.toFixed(6)} vs ${delta}`);
+  }
   console.log('leakvue 1 frame tests passed');
 }
