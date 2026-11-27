@@ -166,6 +166,12 @@
       return (res && res.value) || '';
     },
 
+    /** Reads a descriptor (e.g. 2901, the device's own text name for a value). Resolves to hex. */
+    async readDescriptor(deviceId, service, characteristic, descriptor) {
+      const res = await ble().readDescriptor({ deviceId, service, characteristic, descriptor, timeout: 5000 });
+      return (res && res.value) || '';
+    },
+
     /** onValue gets a hex string each time the device sends this characteristic. */
     async subscribe(deviceId, service, characteristic, onValue) {
       const key = 'notification|' + deviceId + '|' + service.toLowerCase() + '|' + characteristic.toLowerCase();

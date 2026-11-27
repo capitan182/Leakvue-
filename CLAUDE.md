@@ -122,6 +122,13 @@ Next: have the owner capture logs with the LeakVue 2: idle in still water; a han
 - **Don't try to get around security.** If the data is encrypted, needs bonding with a secret, or needs commands you can only get by attacking the official app, stop and tell the owner. The right path then is asking ALD / PlainSight for the protocol. Note the Lab cannot see anything the device only sends after the official app writes a "start" command; if every capture is silent, that is the likely reason, and it is also a stop-and-ask.
 - Also try the LeakVue 1 and report what you see. If it doesn't appear in a BLE scan, it may use classic Bluetooth, which iOS apps generally can't reach without Apple's MFi program.
 
+#### LeakVue 1 (owner wants it supported; the current ALD app no longer works with it)
+
+- **First capture, 27 Nov 2026 (unit #49):** it IS Bluetooth Low Energy, so an iPhone app can reach it. Advertises as **"LeakVue 049"** (connectable) with one maker service `5a460000-4bd6-4b1a-acd4-456a038e3bae`. Characteristics: `…0002` notify (descriptors 2902 + 2901), `…0003` write-without-response (2901), `…0004` read/write, `…0005` read/write, `…0006` read, `…0007` read/write (each with 2901). Same shape as the LeakVue 2's serial link (a notify "data" value plus a write-no-reply "command" value), so it most likely also streams only after its app sends a start command. Subscribing to `…0002` worked; nothing arrived in the ~20 s before the log was shared.
+- **Every value has a 2901 descriptor** (the device's own text name for it). The Lab now has **"Read the value names"** (`readNames`, `LV.ble.readDescriptor`): read-only, one at a time, stops on the first timeout, shows and logs `NAME C3 = "…"`. Do this first; it may name the data and command values outright.
+- "Find the connected LeakVue" now also asks iOS for devices with the LeakVue 1 service, so the multi-app listen (Experiment A) works with the old LeakVue 1 app if the owner still has one running somewhere. Their ServiceTitan sample PDF had screenshots from a "LeakVue 1" app showing levels in **mils** (thousandths of an inch), so an old app exists in use.
+- Same rules as the LeakVue 2: no guessed writes; any command to `…0003` goes in deliberately with the owner's OK, ideally copied from watching the old app.
+
 ### Phase 3: live scans
 - On the test screen add **Connect LeakVue**. During a scan, stream readings into `scan.readings` as `[secondsSinceStart, levelInches]`, update the level graph and the running rate live, and stop when the scan timer ends.
 - Keep manual entry as the fallback whenever no device is connected.

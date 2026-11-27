@@ -27,6 +27,8 @@
   const LOCKED = /insufficient|authenticat|encrypt|authoriz/i;
   // Dialog/Renesas "DSPS" serial port: data arrives on TX once the phone says it is ready on FLOW.
   const DSPS = '0783b03e-8535-b5a0-7140-a304d2495cb7';
+  // LeakVue 1 (first seen 26 Nov 2026 as "LeakVue 049"): one maker service with values …0002–…0007.
+  const LEAKVUE1_SERVICE = '5a460000-4bd6-4b1a-acd4-456a038e3bae';
   const DSPS_FLOW = '0783b03e-8535-b5a0-7140-a304d2495cb9';
   const FLOW_ON = '01';
 
@@ -218,7 +220,7 @@
       <li class="lab-char ${ch.count ? 'has-data' : ''}">
         <div class="lab-char-head">
           <span class="lab-alias">${ch.alias}</span>
-          <span class="lab-char-name">${D.uuidName(ch.uuid) || 'Unknown (maker-specific)'}</span>
+          <span class="lab-char-name">${ch.userName ? html`“${ch.userName}”` : D.uuidName(ch.uuid) || 'Unknown (maker-specific)'}</span>
         </div>
         <div class="lab-id">${D.shortUuid(ch.uuid)}</div>
         <div class="lab-props">
@@ -283,6 +285,11 @@
           ? html`<button type="button" class="btn btn-sm btn-primary" data-act="connect" data-id="${c.id}">Reconnect</button>`
           : html`<button type="button" class="btn btn-sm" data-act="disconnect">Disconnect</button>`}
       </div>
+      ${c.status === 'connected' && Array.from(c.chars.values()).some((ch) => ch.nameDescriptor && !ch.firmware) ? html`
+        <div class="lab-step">
+          <strong>This device names its values.</strong> Reading the names tells us what each one is. It only reads; nothing is sent to the device.
+          <div class="btn-row"><button type="button" class="btn btn-sm" data-act="names" ${c.busy || c.stalled ? 'disabled' : ''}>Read the value names</button></div>
+        </div>` : ''}
       ${c.status === 'connected' && c.flow ? html`
         <div class="lab-step">
           <strong>Nothing arriving?</strong> This device sends its data like a serial cable, and it may be waiting
@@ -412,7 +419,7 @@
     if (!(await startBluetooth())) return;
     let devices = [];
     try {
-      devices = await LV.ble.alreadyConnected([DSPS, 'fef5', '180a']);
+      devices = await LV.ble.alreadyConnected([DSPS, LEAKVUE1_SERVICE, 'fef5', '180a']);
     } catch (err) {
       log('ERROR', 'Find connected failed: ' + LV.native.errText(err));
       toast(LV.native.errText(err), 'error');
@@ -528,6 +535,32 @@
     }
   }
 
+  /** Read each value's text name (2901 descriptor), one at a time. Stops if the device goes quiet. */
+  async function readNames(c) {
+    for (const ch of c.chars.values()) {
+      if (S.conn !== c || c.status !== 'connected' || c.stalled) return;
+      if (!ch.nameDescriptor || ch.firmware || ch.userName) continue;
+      try {
+        const hex = await LV.ble.readDescriptor(c.id, ch.service, ch.uuid, ch.nameDescriptor);
+        const bytes = D.hexToBytes(hex);
+        let text = '';
+        try { text = new TextDecoder('utf-8').decode(Uint8Array.from(bytes)); } catch (_) { text = D.ascii(bytes); }
+        ch.userName = text.replace(/\0+$/, '').trim() || '(blank)';
+        log('NAME', ch.alias + ' = "' + ch.userName + '"  (' + D.bytesToHex(bytes) + ')');
+      } catch (err) {
+        const msg = LV.native.errText(err);
+        log('NAMEERR', ch.alias + ' ' + msg);
+        noteLocked(c, msg);
+        if (/time(d)? ?out/i.test(msg)) {
+          c.stalled = true;
+          log('STALLED', 'The device did not answer. No more reads on this connection.');
+          return;
+        }
+      }
+      mark('conn');
+    }
+  }
+
   /** The every-2-seconds re-read: only values that have already answered a Read. */
   async function pollOnce(c) {
     for (const ch of c.chars.values()) {
@@ -621,6 +654,9 @@
             count: 0, notifyCount: 0, distinct: new Set(), last: null, lastT: 0, error: '', subscribed: false,
             firmware: D.isFirmwareService(svc.uuid),
             isData: D.normUuid(chr.uuid) === D.LEAKVUE_DATA_UUID,
+            // A 2901 descriptor is the device's own text name for this value ("Level", "Command"…).
+            nameDescriptor: ((chr.descriptors || []).map((d) => d.uuid).find((u) => D.shortUuid(u) === '2901')) || null,
+            userName: '',
           };
           if (D.normUuid(svc.uuid) === DSPS && D.normUuid(chr.uuid) === DSPS_FLOW && ch.props.writeWithoutResponse) c.flow = ch;
           c.chars.set(key, ch);
@@ -813,6 +849,14 @@
             log('WRITE', c.flow.alias + ' ' + FLOW_ON + ' (serial port flow control: phone is ready to receive)');
             toast('Sent "ready"');
             mark('conn');
+          }
+        }
+        else if (act === 'names') {
+          const c = S.conn;
+          if (c && c.status === 'connected' && !c.busy) {
+            c.busy = true;
+            mark('conn');
+            try { await readNames(c); } finally { c.busy = false; mark('conn'); }
           }
         }
         else if (act === 'zero') {
