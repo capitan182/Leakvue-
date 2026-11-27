@@ -97,7 +97,7 @@
     if (a.status === 'remaining') return { tone: 'warn', text: who + 'Still searching' };
     if (a.status === 'normal') return { tone: 'ok', text: 'Not leaking' };
     if (a.status === 'rising') return { tone: 'warn', text: who + 'Retest: water was added' };
-    return { tone: 'danger', text: who + 'Leak · ' + K.fmtIn(a.worst.result.totalIn) + ' in/day' };
+    return { tone: 'danger', text: who + 'Leak · ' + S.signedIn(a.worst.result.totalIn) + ' a day' };
   }
 
   async function create(sample) {

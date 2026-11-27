@@ -67,7 +67,7 @@
             ${q.kind === 'leak' ? html`<div class="verdict verdict-leak">Leaking</div>
               <div class="body-row-num"><strong>${q.big}</strong> inches a day</div>` : ''}
             ${q.kind === 'normal' ? html`<div class="verdict verdict-ok">${raw(ICONS.ok)} Not leaking</div>
-              ${q.big ? html`<div class="body-row-num"><strong>${q.big}</strong> inches a day, evaporation</div>` : ''}` : ''}
+              ${q.big ? html`<div class="body-row-num"><strong>${q.big}</strong> inches a day, within normal evaporation rate</div>` : ''}` : ''}
             ${q.kind === 'retest' ? html`<div class="verdict verdict-warn">${raw(ICONS.warn)} Test again</div>
               <div class="body-row-num">Water was being added during the test</div>` : ''}
           </div>`)}

@@ -125,6 +125,10 @@
     const r = Math.round(n * 2) / 2; // halves read easier than tenths
     return r === Math.floor(r) ? String(r) : (Math.floor(r) || '') + '½';
   }
+  /** A daily loss written the industry way: -1.10″ (owner, 27 Nov 2026). */
+  function signedIn(totalIn) {
+    return (totalIn > 0 ? '-' : '') + K.fmtIn(Math.abs(totalIn)) + '″';
+  }
   function partDetail(name) {
     return (C.plain.parts[String(name || '').trim().toLowerCase()] || '');
   }
@@ -148,7 +152,7 @@
         thing,
         verdict: n.verdict.replace('{thing}', thing),
         pre: n.pre,
-        big: w && w.totalIn > 0 ? K.fmtIn(w.totalIn) : null,
+        big: w && w.totalIn > 0 ? signedIn(w.totalIn) : null,
         unit: 'inches a day',
         lines: n.lines.map((l) => l.replace('{thing}', thing)
           .replace('{week}', w && w.totalIn > 0 ? K.fmtIn(w.totalIn * 7, 1) : '')),
@@ -160,7 +164,7 @@
     // Inches a day is the standard (owner, 27 Nov 2026): the big number is how fast the water level
     // drops, the same figure the LeakVue reports. Gallons only when the size was entered.
     const out = { kind: 'leak', thing, qual: a.rangeDiffers ? 'Up to' : 'About', lines: [] };
-    out.big = K.fmtIn(w.totalIn);
+    out.big = signedIn(w.totalIn);
     out.unit = 'inches a day';
     out.lines.push('Normal evaporation is only about ' + K.fmtIn(a.evap) + ' inches a day.');
     if (w.leakGal != null) {
@@ -209,5 +213,5 @@
     return out;
   }
 
-  LV.story = { pumpLabel, bodyName, settingLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
+  LV.story = { pumpLabel, bodyName, signedIn, settingLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
 })();
