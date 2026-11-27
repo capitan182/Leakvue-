@@ -109,7 +109,10 @@
     const m = { l: 52, r: 14, t: 10, b: 30 };
     const pw = W - m.l - m.r;
     const ph = H - m.t - m.b;
-    const pts = rebase(readings, fit);
+    // A 15-minute recording is ~4,300 readings; ~400 points draw the same line. The fit uses them all.
+    const every = Math.ceil(readings.length / 400);
+    const shown = every > 1 ? readings.filter((_, i) => i % every === 0 || i === readings.length - 1) : readings;
+    const pts = rebase(shown, fit);
     const tMax = pts[pts.length - 1][0] || 1;
     let yLo = Math.min.apply(null, pts.map((p) => p[1]));
     let yHi = Math.max.apply(null, pts.map((p) => p[1]));

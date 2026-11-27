@@ -136,10 +136,15 @@ Next: have the owner capture logs with the LeakVue 2: idle in still water; a han
 - **Settled: 1 unit = 0.00022 in (0.22 mil), `LEAKVUE1_IN_PER_UNIT`** (owner's recording of the old app's Sensor Details screen + Lab log, 26 Nov 2026 23:17 local). On that screen the device sends a **4-byte float level (no counter) then a 1-byte `01`** (probably battery OK) every 1.35 s, and the old app's **Delta = (level − the level just after Clear) × 0.00022** exactly: 16 pairs after Clear and 6 before, every one within the 5 decimals shown (fit 4,547 units/in, r 0.9999999). Clear shows "Restarting" and zeroes on the next level. So the zone is ~768 × 0.00022 ≈ 0.17 in, and a pixel ≈ 1.32 mil. The earlier 24-hour fit (4,500–5,100) agrees. `leakvue1()` takes 4-byte frames as levels with `counter: null` (Delta screen and the level before each Align picture); the Lab shows "slow mode" then and skips the dropped-packet count.
 - Same rules as the LeakVue 2: no guessed writes; any command to `…0003` goes in deliberately with the owner's OK, ideally copied from watching the old app.
 
-### Phase 3: live scans
-- On the test screen add **Connect LeakVue**. During a scan, stream readings into `scan.readings` as `[secondsSinceStart, levelInches]`, update the level graph and the running rate live, and stop when the scan timer ends.
-- Keep manual entry as the fallback whenever no device is connected.
-- Save readings as they arrive, so a crash or a phone call doesn't lose a scan.
+### Phase 3: live scans — "record alongside" built (owner's choice, 27 Nov 2026)
+Our app can't start a LeakVue test yet (the start command hasn't been captured), so for now it **records alongside** the device's own app: the tech presses Test in the ALD app (LeakVue 2) or the old LeakVue 1 app as usual, and our app listens to the same readings (Experiment A). Built in `js/recorder.js` (`LV.recorder`):
+- **Connect LeakVue** (panel at the top of the Scans card, app only): `alreadyConnected([DSPS, LeakVue 1 service])`, connect, find the readings value (LeakVue 1 `…0002` or LeakVue 2 `…cb8`), **subscribe only: no reads, no writes**. Picks between several if more than one is connected. Shows live status: listening / waiting ("Press Test in the ALD app") / float out of zone / slow mode (the device's app is on its sensor screen, ~1 reading a second).
+- **Record from LeakVue** per scan: readings go into `scan.readings` as `[seconds, inches relative to the first reading]` (higher = more water), out-of-zone frames skipped and counted, until `scan.durationMin` (default 15) is up, then a chime and toast. **Stop recording** ends early; **Record again** replaces (with a confirm); **Clear readings** goes back to typed entry. The tech should press our Record and the ALD app's Test at about the same time.
+- The recording lives in the module, not the screen, so it survives switching screens: while the test screen is showing that test it attaches a sink and saves through its own autosave; otherwise the recorder saves straight to IndexedDB. Saved every 2 s. Losing the link stops the recording and keeps what was saved.
+- Lab and recorder share the plugin's listeners, so only one connects at a time (each refuses with a message; `LV.labConnectedId`).
+- Level charts draw at most ~400 points (a 15-min scan is ~4,300 readings); the fit uses all.
+- Checked in Chromium against a fake LeakVue 2 dropping 1.00 in/day (15-s scan measured 0.97–1.02 in/day, readings saved while away from the screen, zero writes/reads). Not yet on a real device.
+- Still to do: our own start command (Experiment B / SNIFF.md), so the ALD app isn't needed.
 
 ### Phase 4: getting it to the techs
 - Install on the other techs' iPhones/iPads through **TestFlight**. That needs the paid Apple Developer Program ($99/year): explain it and let the owner decide. Private, franchise-only distribution is fine; this app isn't meant for the public App Store.

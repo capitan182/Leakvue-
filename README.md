@@ -60,6 +60,7 @@ js/util.js            HTML templating, dates, small helpers
 js/calc.js            all the math (no UI), unit-tested in tests/calc.test.js
 js/decode.js          Bluetooth bytes as hex and trial numbers, unit-tested in tests/decode.test.js
 js/native.js          bridge to the iPhone app: Bluetooth, share sheet, keep screen on
+js/recorder.js        records a scan from the LeakVue while its own app runs the test
 js/catalog.js         pick lists, homeowner wording, defaults
 js/db.js              on-device storage, test numbers, backup/restore
 js/form.js            form fields bound to the test/settings data

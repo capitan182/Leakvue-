@@ -619,8 +619,15 @@
     mark('devices');
   }
 
+  // The test screen's recorder and the Lab share the Bluetooth plugin's listeners, so only one connects at a time.
+  LV.labConnectedId = () => (S.conn && S.conn.status !== 'disconnected' ? S.conn.id : null);
+
   async function connect(id) {
     if (S.conn && S.conn.busy) return;
+    if (LV.recorder && LV.recorder.connected()) {
+      toast('A test screen is connected to the LeakVue. Tap Disconnect there first.', 'error');
+      return;
+    }
     if (S.conn && S.conn.status !== 'disconnected') await disconnect();
     await stopScan();
     if (S.bt !== 'ready' && !(await startBluetooth())) return;

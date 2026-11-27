@@ -183,8 +183,59 @@
     }
 
     function timerTpl(s) {
-      if (s.readings && s.readings.length) return '';
+      if ((s.readings && s.readings.length) || R.recordingScan() === s.id) return '';
       return html`<button type="button" class="btn btn-sm timer-btn" data-act="timer" data-id="${s.id}"></button>`;
+    }
+
+    /* ---------- recording from the LeakVue (alongside its own app) ---------- */
+    const R = LV.recorder;
+    const appName = (model) => (model === 1 ? 'the LeakVue 1 app' : 'the ALD app');
+    function recordTpl(s) {
+      if (!R.available()) return '';
+      const rec = R.recordingScan();
+      if (rec === s.id) return html`<button type="button" class="btn btn-sm record-btn running" data-act="record" data-id="${s.id}">Stop recording</button>`;
+      if (rec || !R.connected()) return '';
+      const has = s.readings && s.readings.length;
+      return html`<button type="button" class="btn btn-sm record-btn" data-act="record" data-id="${s.id}">${has ? 'Record again' : 'Record from LeakVue'}</button>`;
+    }
+    function deviceTpl() {
+      if (!R.available()) return '';
+      const r = R.state();
+      if (r.status === 'connected') {
+        const scanNo = t.scans.findIndex((x) => x.id === R.recordingScan()) + 1;
+        let live;
+        if (!R.heard() && !R.quiet()) live = 'Connected. Listening for readings…';
+        else if (R.quiet()) live = html`<span class="tone-warn">Waiting for readings. Press Test in ${appName(r.device.model)}.</span>`;
+        else if (r.outOfZone) live = html`<span class="tone-warn">The float is out of the testing zone. Adjust the fine screw.</span>`;
+        else if (r.slow) live = html`Live, about one reading a second (${appName(r.device.model)} is on its sensor screen). Press Test there for full speed.`;
+        else live = 'Live readings coming in.';
+        return html`
+          <div class="device-row">
+            <p><span class="dot-live" aria-hidden="true"></span><strong>${r.device.name}</strong> connected <span class="muted">· LeakVue ${r.device.model}</span></p>
+            <button type="button" class="btn btn-quiet btn-sm" data-act="lv-disconnect">Disconnect</button>
+          </div>
+          <p class="small" data-role="device-live">${live}${R.recordingScan() ? html` <strong>Recording scan ${scanNo || ''}.</strong>` : ''}</p>`;
+      }
+      if (r.status === 'finding' || r.status === 'connecting') return html`<p class="small muted">Looking for the LeakVue…</p>`;
+      if (r.status === 'choose') {
+        return html`<p class="small">More than one LeakVue is connected. Which one?</p>
+          <div class="device-choices">${r.candidates.map((d) => html`<button type="button" class="btn btn-sm" data-act="lv-choose" data-id="${d.deviceId}" data-name="${d.name || ''}">${d.name || d.deviceId}</button>`)}</div>`;
+      }
+      return html`
+        <div class="device-row">
+          <p class="small muted">Record each scan straight from the LeakVue while its own app runs the test.</p>
+          <button type="button" class="btn btn-sm" data-act="lv-connect">Connect LeakVue</button>
+        </div>
+        ${r.message ? html`<p class="small ${r.status === 'error' || r.status === 'none' ? 'tone-warn' : ''}">${r.message}</p>` : ''}`;
+    }
+    function readingsNoteTpl(s, rate) {
+      const a = R.state().active;
+      if (a && a.scanId === s.id) {
+        const n = s.readings ? s.readings.length : 0;
+        const last = n ? s.readings[n - 1] : null;
+        return html`<strong>Recording…</strong> ${plural(n, 'reading')}${last ? html` · ${LV.charts.mmss(last[0])} so far` : ''}${a.skipped ? html` · ${plural(a.skipped, 'out-of-zone reading')} skipped` : ''}`;
+      }
+      return html`Dropped <strong>${K.fmtIn(rate.dropIn, 4)} in</strong> over ${LV.charts.mmss(rate.durationMin * 60)} (${plural(s.readings.length, 'reading')}) <button type="button" class="btn-link small" data-act="clear-readings" data-id="${s.id}">Clear readings</button>`;
     }
 
     function scansTpl() {
@@ -193,8 +244,9 @@
       }
       return html`${t.scans.map((s, i) => {
         const iso = s.purpose === 'isolation';
-        const fromDevice = s.readings && s.readings.length >= 3;
-        const rate = fromDevice ? K.scanRate(s) : null;
+        const live = R.recordingScan() === s.id;
+        const fromDevice = live || (s.readings && s.readings.length >= 3);
+        const rate = s.readings && s.readings.length >= 3 ? K.scanRate(s) : null;
         return html`
           <article class="scan${iso ? ' scan-iso' : ''}" data-scan="${s.id}">
             <header class="scan-head">
@@ -210,7 +262,7 @@
               ${fromDevice ? html`
                 <div class="field full">
                   <span class="field-label">From LeakVue readings</span>
-                  <p class="readings-note">Dropped <strong>${K.fmtIn(rate.dropIn, 4)} in</strong> over ${LV.charts.mmss(rate.durationMin * 60)} (${plural(s.readings.length, 'reading')})</p>
+                  <p class="readings-note" data-role="readings-note">${readingsNoteTpl(s, rate)}</p>
                 </div>` : html`
                 ${f('Scan length (min)', 'scans.' + i + '.durationMin', { inputmode: 'decimal' })}
                 <div class="field">
@@ -224,9 +276,9 @@
             </div>
             <div class="scan-foot">
               <p class="scan-result" data-role="result">${resultLine(s)}</p>
-              ${timerTpl(s)}
+              <div class="scan-actions">${recordTpl(s)}${timerTpl(s)}</div>
             </div>
-            ${fromDevice ? LV.charts.levelChart(s.readings, rate.fit, { title: S.scanName({ scan: s, index: i }) }) : ''}
+            <div data-role="chart">${rate ? LV.charts.levelChart(s.readings, rate.fit, { title: S.scanName({ scan: s, index: i }) }) : ''}</div>
           </article>`;
       })}`;
     }
@@ -328,6 +380,7 @@
         <div class="card-head">
           <h2>Scans</h2>
         </div>
+        ${R.available() ? html`<div class="device-panel" data-role="device">${deviceTpl()}</div>` : ''}
         <div data-role="scans">${scansTpl()}</div>
         <div class="add-scan-row">
           <button type="button" class="btn" data-act="add-scan" data-purpose="baseline">+ Add a scan</button>
@@ -382,6 +435,12 @@
     /* ---------- timers ---------- */
     function tickTimers() {
       let anyRunning = false;
+      const a = R.state().active;
+      if (a && a.testId === t.id) {
+        const btn = $('[data-act="record"][data-id="' + a.scanId + '"]', root);
+        const left = Math.max(0, Math.ceil(a.durationSec - (Date.now() - a.start) / 1000));
+        if (btn) btn.textContent = 'Stop recording · ' + LV.charts.mmss(left) + ' left';
+      }
       t.scans.forEach((s) => {
         const btn = $('[data-act="timer"][data-id="' + s.id + '"]', root);
         const dur = (K.num(s.durationMin) || 15) * 60;
@@ -517,6 +576,34 @@
         }
         touch();
         tickTimers();
+      } else if (act === 'lv-connect') {
+        await R.connect();
+      } else if (act === 'lv-choose') {
+        await R.connectTo(btn.dataset.id, btn.dataset.name);
+      } else if (act === 'lv-disconnect') {
+        if (R.recordingScan() && !confirm('Stop recording and disconnect? The readings so far are kept.')) return;
+        await R.disconnect();
+      } else if (act === 'record') {
+        const s = t.scans.find((x) => x.id === btn.dataset.id);
+        if (!s) return;
+        if (R.recordingScan() === s.id) { await R.stopRecording('stopped'); return; }
+        if (s.readings && s.readings.length && !confirm('Replace the ' + plural(s.readings.length, 'reading') + ' on this scan?')) return;
+        unlockAudio();
+        s.timerStartedAt = null;
+        try {
+          const a = R.startRecording({ testId: t.id, scanId: s.id, durationSec: (K.num(s.durationMin) || 15) * 60 });
+          s.readings = a.readings;
+        } catch (err) { toast(err.message, 'error'); return; }
+        touch();
+        renderScans();
+        renderResults();
+      } else if (act === 'clear-readings') {
+        const s = t.scans.find((x) => x.id === btn.dataset.id);
+        if (!s || !confirm('Clear the LeakVue readings on this scan? You can type the drop in instead.')) return;
+        s.readings = null;
+        touch();
+        renderScans();
+        renderResults();
       } else if (act === 'delete') {
         if (!confirm('Delete test ' + t.number + '? This cannot be undone.')) return;
         deleted = true;
@@ -524,6 +611,60 @@
         toast('Test deleted');
         location.hash = '#/tests';
       }
+    });
+
+    /* ---------- live recording ---------- */
+    function renderDevice() {
+      const el = $('[data-role="device"]', root);
+      if (el) el.innerHTML = deviceTpl();
+    }
+    function updateLive(s) {
+      const art = $('[data-scan="' + s.id + '"]', root);
+      if (!art) return;
+      const rate = s.readings && s.readings.length >= 3 ? K.scanRate(s) : null;
+      const note = $('[data-role="readings-note"]', art);
+      if (note) note.innerHTML = readingsNoteTpl(s, rate);
+      const chart = $('[data-role="chart"]', art);
+      if (chart && rate) {
+        chart.innerHTML = LV.charts.levelChart(s.readings, rate.fit, { title: S.scanName({ scan: s, index: t.scans.indexOf(s) }) });
+        LV.charts.enhance(chart);
+      }
+    }
+    // If this test's scan is being recorded (the tech left and came back), pick the readings up again.
+    const act0 = R.state().active;
+    if (act0 && act0.testId === t.id) {
+      const s = t.scans.find((x) => x.id === act0.scanId);
+      if (s) s.readings = act0.readings;
+    }
+    const detach = R.attach(t.id, (a) => {
+      const s = t.scans.find((x) => x.id === a.scanId);
+      if (!s) return;
+      s.readings = a.readings;
+      touch();
+      updateLive(s);
+      updateResultLines();
+      renderResultsSoon();
+    });
+    const offRecorder = R.on((kind, st, a) => {
+      if (kind === 'finished' && a && a.testId === t.id) {
+        const i = t.scans.findIndex((x) => x.id === a.scanId);
+        renderScans();
+        renderResults();
+        renderDevice();
+        if (a.endReason === 'done') {
+          chime();
+          toast('Scan ' + (i + 1) + ' recorded: ' + plural(a.readings.length, 'reading') + '.');
+        } else if (a.endReason === 'stopped') {
+          toast('Recording stopped. ' + plural(a.readings.length, 'reading') + ' kept.');
+        }
+        return;
+      }
+      if (kind === 'started' || kind === 'state') {
+        renderDevice();
+        renderScans();
+        return;
+      }
+      if (kind === 'tick') renderDevice();
     });
 
     LV.charts.enhance(root);
@@ -534,6 +675,8 @@
       flush,
       async destroy() {
         clearInterval(timerInterval);
+        detach();
+        offRecorder();
         keepAwake(false);
         await flush();
       },
