@@ -164,6 +164,21 @@
     return pxShown * LEAKVUE_IN_PER_PX * (900 / scanSeconds);
   }
 
+  /* --- LeakVue 1 reading frames (maker service 5a460000-…, value …0002) ---
+   * First capture 27 Nov 2026 (unit #49), heard alongside the old LeakVue 1 app on an iPad: also 5
+   * bytes at ~4.77 a second, byte 4 a +1 packet counter (196/196). Bytes 0-3 are a little-endian
+   * float32 that reads like the level in MILS (thousandths of an inch; the old app shows mils): it
+   * settled at 741.69 → 741.71 in still water. Exactly 0 looks like "no reading" (seen while the float
+   * was being moved). PROVISIONAL until the old app's own number is compared. */
+  const LEAKVUE1_DATA_UUID = '5a460002-4bd6-4b1a-acd4-456a038e3bae';
+  function leakvue1(bytes) {
+    if (!bytes || bytes.length < 5) return null;
+    const counter = bytes[4];
+    const mils = new DataView(Uint8Array.from(bytes.slice(0, 4)).buffer).getFloat32(0, true);
+    if (!isFinite(mils) || mils === 0) return { counter, error: true, mils: null, inches: null };
+    return { counter, error: false, mils, inches: mils / 1000 };
+  }
+
   /** How many readings the counter skipped between two frames (0..255 wrap). 1 = none lost. */
   function leakvueGap(prevCounter, counter) {
     return (counter - prevCounter) & 0xff;
@@ -177,7 +192,7 @@
 
   const api = {
     hexToBytes, bytesToHex, ascii, looksLikeText, trials, trialsLine, normUuid, shortUuid, uuidName, fmtFloat, isFirmwareService,
-    leakvue, leakvueGap, aldInchesPerDay, LEAKVUE_DATA_UUID, LEAKVUE_PX_SCALE, LEAKVUE_IN_PER_PX,
+    leakvue, leakvue1, LEAKVUE1_DATA_UUID, leakvueGap, aldInchesPerDay, LEAKVUE_DATA_UUID, LEAKVUE_PX_SCALE, LEAKVUE_IN_PER_PX,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

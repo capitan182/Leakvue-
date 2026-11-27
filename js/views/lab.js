@@ -231,10 +231,10 @@
         ${ch.isData && ch.decoded ? html`
           <div class="lab-reading ${ch.decoded.error ? 'is-err' : ''}">
             ${ch.decoded.error ? 'Float out of the testing zone (no reading)'
-              : html`Change since zero <strong>${fmtIn((ch.level - ch.lbase) / D.LEAKVUE_PX_SCALE * D.LEAKVUE_IN_PER_PX)}</strong>`}
+              : html`Change since zero <strong>${fmtIn((ch.level - ch.lbase) * ch.decoded.inPerUnit)}</strong>`}
             <span class="muted small">packet ${ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}${ch.errs ? ' · ' + ch.errs + ' sensor errors' : ''}</span>
           </div>
-          ${ch.lbase != null ? html`<div class="muted small">${(ch.level / D.LEAKVUE_PX_SCALE).toFixed(4)} px · inches are approximate until a real job confirms them · ${plural(ch.count, 'reading')}</div>` : ''}
+          ${ch.lbase != null ? html`<div class="muted small">LeakVue ${ch.model} · ${ch.decoded.unitText || ''} · inches are approximate until confirmed · ${plural(ch.count, 'reading')}</div>` : ''}
           ${!ch.decoded.error ? html`<button type="button" class="btn btn-sm lab-read" data-act="zero" data-key="${ch.key}">Zero here</button>` : ''}` : ''}
         ${ch.props.read && !ch.firmware && S.conn && S.conn.status === 'connected' ? html`
           <button type="button" class="btn btn-sm lab-read" data-act="read" data-key="${ch.key}" ${S.conn.busy || S.conn.stalled ? 'disabled' : ''}>Read</button>` : ''}
@@ -464,7 +464,7 @@
     if (ch.distinct.size < 1000) ch.distinct.add(hex);
     let hint = '';
     if (ch.isData) {
-      const d = D.leakvue(bytes);
+      const d = readingOf(ch, bytes);
       if (d) {
         ch.decoded = d;
         if (ch.lastCounter != null) {
@@ -479,7 +479,7 @@
           if (ch.lmin == null || d.raw < ch.lmin) ch.lmin = d.raw;
           if (ch.lmax == null || d.raw > ch.lmax) ch.lmax = d.raw;
         }
-        hint = d.error ? '  level=OUT-OF-ZONE' : '  level=' + d.raw + ' px=' + d.px.toFixed(5) + ' packet=' + d.counter;
+        hint = d.error ? '  level=OUT-OF-ZONE' : '  level=' + d.raw + ' ' + d.unitText + ' packet=' + d.counter;
       }
     }
     log(kind, ch.alias + ' #' + ch.count + extra + ' ' + valueText(bytes) + hint, t);
@@ -653,7 +653,9 @@
             key, alias: S.aliases.get(key), service: svc.uuid, uuid: chr.uuid, props: chr.properties || {},
             count: 0, notifyCount: 0, distinct: new Set(), last: null, lastT: 0, error: '', subscribed: false,
             firmware: D.isFirmwareService(svc.uuid),
-            isData: D.normUuid(chr.uuid) === D.LEAKVUE_DATA_UUID,
+            // The value that carries LeakVue readings: LeakVue 2 (big-endian px) or LeakVue 1 (float mils).
+            isData: [D.LEAKVUE_DATA_UUID, D.LEAKVUE1_DATA_UUID].includes(D.normUuid(chr.uuid)),
+            model: D.normUuid(chr.uuid) === D.LEAKVUE1_DATA_UUID ? 1 : 2,
             // A 2901 descriptor is the device's own text name for this value ("Level", "Command"…).
             nameDescriptor: ((chr.descriptors || []).map((d) => d.uuid).find((u) => D.shortUuid(u) === '2901')) || null,
             userName: '',
@@ -734,10 +736,25 @@
       if (ch.decoded.error) return '  [LeakVue out of zone]';
       if (ch.level == null) return '';
       const since = c.connectedAt ? ' t+' + ((Date.now() - c.connectedAt) / 1000).toFixed(1) + 's' : '';
-      return '  [LeakVue raw=' + ch.level + ' px=' + (ch.level / D.LEAKVUE_PX_SCALE).toFixed(5) +
+      return '  [LeakVue ' + ch.model + ' raw=' + ch.level + ' ' + (ch.decoded.unitText || '') +
         ' packet=' + ch.decoded.counter + since + ']';
     }
     return '';
+  }
+  /**
+   * One reading in a shape both models share: { counter, error, raw, unitText, inPerUnit }.
+   * raw is what we zero and compare; inPerUnit turns a change in raw into inches.
+   */
+  function readingOf(ch, bytes) {
+    if (ch.model === 1) {
+      const d = D.leakvue1(bytes);
+      if (!d) return null;
+      return { counter: d.counter, error: d.error, raw: d.mils, unitText: d.error ? '' : d.mils.toFixed(3) + ' mils', inPerUnit: 0.001 };
+    }
+    const d = D.leakvue(bytes);
+    if (!d) return null;
+    return { counter: d.counter, error: d.error, raw: d.raw, unitText: d.error ? '' : d.px.toFixed(5) + ' px',
+      inPerUnit: D.LEAKVUE_IN_PER_PX / D.LEAKVUE_PX_SCALE };
   }
   function fmtIn(inches) {
     return (inches >= 0 ? '+' : '−') + Math.abs(inches).toFixed(4) + ' in';
