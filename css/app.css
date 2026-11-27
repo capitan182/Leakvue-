@@ -623,4 +623,11 @@ body.is-report .appbar { position: static; }
 .rc-why { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: #f5f7fa; font-size: 1rem; }
 .rc-why span { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5a6878; margin-bottom: 2px; }
 .rc-technical { display: contents; }
+.st-box {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; margin: 4px 0 12px; box-shadow: var(--shadow);
+}
+.st-box > div { flex: 1 1 200px; }
+.st-box p { margin-top: 2px; }
 .report-detail { justify-content: center; font-size: .875rem; font-weight: 500; color: var(--muted); margin: -4px 0 10px; }

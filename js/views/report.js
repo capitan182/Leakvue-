@@ -167,11 +167,18 @@
         </a>
         <div class="report-actions">
           <button type="button" class="btn" data-act="print">Print / PDF</button>
-          <button type="button" class="btn btn-primary" data-act="pictures">Save to Photos</button>
+          <button type="button" class="btn" data-act="pictures">Save to Photos</button>
         </div>
       </div>
-      <p class="report-tip no-print">Screenshot any card, or tap <strong>Save to Photos</strong> to save every card as a picture at once
-      (then choose <em>Save Images</em>). Upload them from Photos to your report.</p>
+      <div class="st-box no-print">
+        <div>
+          <strong>For your ServiceTitan report</strong>
+          <p class="muted small">One wide picture with big text, so it stays readable when ServiceTitan shrinks it in the PDF.</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-act="st-picture">Save ServiceTitan picture</button>
+      </div>
+      <p class="report-tip no-print">To text the homeowner, screenshot any card below, or tap <strong>Save to Photos</strong> for all of them
+      (then choose <em>Save Images</em>).</p>
       ${t.sample ? html`<p class="sample-banner no-print">Sample report with simulated readings.</p>` : ''}
       <label class="check report-detail no-print">
         <input type="checkbox" data-act="detail" ${t.reportDetail ? 'checked' : ''}>
@@ -188,7 +195,30 @@
       if (e.target.closest('[data-act="print"]')) window.print();
       const btn = e.target.closest('[data-act="pictures"]');
       if (btn && !btn.disabled) savePictures(btn);
+      const st = e.target.closest('[data-act="st-picture"]');
+      if (st && !st.disabled) saveSummary(st);
     });
+
+    async function saveSummary(btn) {
+      btn.disabled = true;
+      try {
+        const img = LV.reportImages.summaryPicture(p, { company: s.companyName, date: fmtDate(t.date), number: t.number }, baseName());
+        const title = 'Leak test summary ' + (t.number || '');
+        if (LV.native.isNative()) {
+          if (await LV.native.shareImages([img], title)) toast('Picture ready');
+        } else {
+          await LV.reportImages.shareOnWeb([img], title);
+        }
+      } catch (err) {
+        console.error(err);
+        toast('Could not make the picture: ' + (err && err.message ? err.message : err), 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    function baseName() {
+      return (t.number || 'leak-test').replace(/[^\w-]+/g, '-');
+    }
     root.addEventListener('change', (e) => {
       if (e.target.dataset.act !== 'detail') return;
       t.reportDetail = e.target.checked;

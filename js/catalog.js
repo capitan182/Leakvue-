@@ -100,6 +100,14 @@
         'equipment pad': 'the pump, filter and heater area',
         'pool shell (below skimmer)': 'the pool itself, below the skimmer',
       },
+      // Very short "where" lines for the wide ServiceTitan picture, which gets shrunk to a thumbnail.
+      short: {
+        pressure: 'Likely: return pipes or equipment',
+        suction: 'Likely: skimmer or main drain pipes',
+        structure: 'Likely: the pool itself (light, fitting, shell)',
+        remaining: 'Still looking for a second leak',
+        noLeak: 'Normal evaporation only',
+      },
       // What to call it in a sentence, from "What are we testing?"
       things: { 'Pool': 'pool', 'Spa': 'spa', 'Pool + spa': 'pool', 'Fountain': 'fountain', 'Pond / water feature': 'water feature' },
       noLeak: 'Good news: we did not find a leak. Your {thing} is only losing what the sun and wind normally take.',

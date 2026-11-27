@@ -173,6 +173,11 @@
     } else {
       out.where = null;
     }
+    // One short line for the wide ServiceTitan picture.
+    if (a.status === 'resolved' && last) out.short = 'Found in: ' + (last.scan.isolated || 'the line we closed off').toLowerCase();
+    else if (a.status === 'remaining') out.short = C.plain.short.remaining;
+    else if (a.pattern && C.plain.short[a.pattern]) out.short = C.plain.short[a.pattern];
+    else out.short = '';
     return out;
   }
 

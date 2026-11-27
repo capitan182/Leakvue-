@@ -82,5 +82,74 @@
     return true;
   }
 
-  LV.reportImages = { render, shareOnWeb };
+  /* ---------- One wide summary picture for ServiceTitan ----------
+   * ServiceTitan's PDF shrinks pictures to a fixed height (a phone screenshot ends up thumb-sized), so
+   * this is wide (about 1.8:1) with at most three lines of very large text, drawn straight onto a
+   * canvas so the sizes are exact. */
+  const W = 1600, H = 880, PAD = 90;
+  const FONT = '-apple-system, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif';
+
+  /** Largest font size (<= max) at which text fits maxWidth; never below min. */
+  function fit(ctx, text, weight, max, min, maxWidth) {
+    let size = max;
+    for (; size > min; size -= 4) {
+      ctx.font = weight + ' ' + size + 'px ' + FONT;
+      if (ctx.measureText(text).width <= maxWidth) break;
+    }
+    ctx.font = weight + ' ' + size + 'px ' + FONT;
+    return size;
+  }
+
+  /**
+   * p: LV.story.plain() result. info: { company, date, number }.
+   * Resolves to { name, dataUrl }.
+   */
+  function summaryPicture(p, info, baseName) {
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    const leak = p.kind === 'leak';
+    const accent = leak ? '#b3261e' : p.kind === 'normal' ? '#18794e' : '#5a6878';
+    const maxW = W - PAD * 2;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, 28, H);
+    ctx.textBaseline = 'alphabetic';
+
+    // 1. Verdict
+    const verdict = leak ? 'LEAK FOUND' : p.kind === 'normal' ? 'NO LEAK FOUND' : 'TEST NOT FINISHED';
+    ctx.fillStyle = accent;
+    fit(ctx, verdict, '800', 150, 80, maxW);
+    ctx.fillText(verdict, PAD, 230);
+
+    // 2. How much
+    let amount = '';
+    if (leak) amount = (p.qual === 'Up to' ? 'Up to ' : '') + p.big + ' ' + (p.unit || '').replace(' of water', '');
+    else if (p.kind === 'normal') amount = LV.catalog.plain.short.noLeak;
+    if (amount) {
+      ctx.fillStyle = '#142233';
+      fit(ctx, amount, '800', 170, 70, maxW);
+      ctx.fillText(amount, PAD, 470);
+    }
+
+    // 3. Where
+    if (leak && p.short) {
+      ctx.fillStyle = '#0a4f94';
+      fit(ctx, p.short, '700', 104, 56, maxW);
+      ctx.fillText(p.short, PAD, 660);
+    }
+
+    // Small print (fine if it ends up too small to read in the PDF)
+    ctx.fillStyle = '#6b7785';
+    const foot = [info.company, info.date, info.number].filter(Boolean).join('  ·  ');
+    fit(ctx, foot, '500', 44, 28, maxW);
+    ctx.fillText(foot, PAD, H - 70);
+
+    return { name: baseName + '-summary.png', dataUrl: c.toDataURL('image/png') };
+  }
+
+  LV.reportImages = { render, shareOnWeb, summaryPicture };
 })();
