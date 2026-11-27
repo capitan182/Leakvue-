@@ -159,11 +159,11 @@
         </a>
         <div class="report-actions">
           <button type="button" class="btn" data-act="print">Print / PDF</button>
-          <button type="button" class="btn btn-primary" data-act="pictures">Save pictures</button>
+          <button type="button" class="btn btn-primary" data-act="pictures">Save to Photos</button>
         </div>
       </div>
-      <p class="report-tip no-print"><strong>Save pictures</strong> turns every card into a picture. Choose <em>Save Images</em> to put them in Photos,
-      then attach them to the ServiceTitan job or text them to the homeowner.</p>
+      <p class="report-tip no-print">Screenshot any card, or tap <strong>Save to Photos</strong> to save every card as a picture at once
+      (then choose <em>Save Images</em>). Upload them from Photos to your report.</p>
       ${t.sample ? html`<p class="sample-banner no-print">Sample report with simulated readings.</p>` : ''}
       <div class="report-cards">
         ${summary}${compare}${steps}${graphs}${next}${details}
