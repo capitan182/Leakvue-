@@ -128,16 +128,19 @@ for (const [px, sec, gal, sqft] of ALD) {
 assert.strictEqual(D.aldInchesPerDay(1, 0), null);
 console.log('ALD px-to-inch tests passed');
 
-// LeakVue 1 frames (unit #49, 27 Nov 2026): little-endian float32 mils + packet counter
+// LeakVue 1 frames (unit #49): little-endian float32 spot position (~1/6 pixel) + packet counter
 {
   let v = D.leakvue1([0xad, 0x40, 0xa9, 0x43, 0x4c]);
   assert.strictEqual(v.counter, 0x4c);
-  assert.ok(Math.abs(v.mils - 338.5052) < 1e-3, 'first frame ' + v.mils);
+  assert.ok(Math.abs(v.value - 338.5052) < 1e-3, 'first frame ' + v.value);
   v = D.leakvue1([0x5d, 0x6d, 0x39, 0x44, 0x10]);
-  assert.ok(Math.abs(v.mils - 741.709) < 1e-3, 'settled frame ' + v.mils);
-  assert.ok(Math.abs(v.inches - 0.741709) < 1e-6);
+  assert.ok(Math.abs(v.value - 741.709) < 1e-3, 'settled frame ' + v.value);
+  assert.ok(Math.abs(v.inches - 741.709 / D.LEAKVUE1_UNITS_PER_INCH) < 1e-6);
   v = D.leakvue1([0, 0, 0, 0, 0x20]);
   assert.strictEqual(v.error, true, 'zero = no reading');
   assert.strictEqual(D.leakvue1([1, 2]), null);
+  // Align-picture pieces are not readings
+  assert.strictEqual(D.leakvue1([0xe7, 0x25, 0xb4, 0x43]), null, '4-byte level before a picture');
+  assert.strictEqual(D.leakvue1(new Array(20).fill(5)), null, '20-byte picture piece');
   console.log('leakvue 1 frame tests passed');
 }

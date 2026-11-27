@@ -653,7 +653,7 @@
             key, alias: S.aliases.get(key), service: svc.uuid, uuid: chr.uuid, props: chr.properties || {},
             count: 0, notifyCount: 0, distinct: new Set(), last: null, lastT: 0, error: '', subscribed: false,
             firmware: D.isFirmwareService(svc.uuid),
-            // The value that carries LeakVue readings: LeakVue 2 (big-endian px) or LeakVue 1 (float mils).
+            // The value that carries LeakVue readings: LeakVue 2 (big-endian px) or LeakVue 1 (float, ~1/6 pixel).
             isData: [D.LEAKVUE_DATA_UUID, D.LEAKVUE1_DATA_UUID].includes(D.normUuid(chr.uuid)),
             model: D.normUuid(chr.uuid) === D.LEAKVUE1_DATA_UUID ? 1 : 2,
             // A 2901 descriptor is the device's own text name for this value ("Level", "Command"…).
@@ -749,7 +749,7 @@
     if (ch.model === 1) {
       const d = D.leakvue1(bytes);
       if (!d) return null;
-      return { counter: d.counter, error: d.error, raw: d.mils, unitText: d.error ? '' : d.mils.toFixed(3) + ' mils', inPerUnit: 0.001 };
+      return { counter: d.counter, error: d.error, raw: d.value, unitText: d.error ? '' : d.value.toFixed(3) + ' units', inPerUnit: 1 / D.LEAKVUE1_UNITS_PER_INCH };
     }
     const d = D.leakvue(bytes);
     if (!d) return null;

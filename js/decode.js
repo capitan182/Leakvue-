@@ -165,18 +165,23 @@
   }
 
   /* --- LeakVue 1 reading frames (maker service 5a460000-…, value …0002) ---
-   * First capture 27 Nov 2026 (unit #49), heard alongside the old LeakVue 1 app on an iPad: also 5
-   * bytes at ~4.77 a second, byte 4 a +1 packet counter (196/196). Bytes 0-3 are a little-endian
-   * float32 that reads like the level in MILS (thousandths of an inch; the old app shows mils): it
-   * settled at 741.69 → 741.71 in still water. Exactly 0 looks like "no reading" (seen while the float
-   * was being moved). PROVISIONAL until the old app's own number is compared. */
+   * Unit #49, 26-27 Nov 2026, heard alongside the old LeakVue 1 app on an iPad: 5 bytes at ~4.77 a
+   * second, byte 4 a +1 packet counter. Bytes 0-3 are a little-endian float32: the laser spot's
+   * position on the sensor in about 1/6 pixel (the Align bursts show a 128-pixel profile and the level
+   * is 6.0 × the spot's pixel), so the float's whole travel is 0..~768. Higher = more water. Exactly 0
+   * = no reading (float out of the zone or moving).
+   * Inches: the old app's "24 Hr Approx" in a screen recording, fitted against the logged readings,
+   * gives 4,500-5,100 units per inch (r 0.97, endpoint method: (now - start) / elapsed × 24 h).
+   * PROVISIONAL until a longer recording narrows it. Other packet lengths on this value are the Align
+   * picture (a 4-byte level, then 128 bytes in 20-byte pieces), not readings. */
   const LEAKVUE1_DATA_UUID = '5a460002-4bd6-4b1a-acd4-456a038e3bae';
+  const LEAKVUE1_UNITS_PER_INCH = 4700;
   function leakvue1(bytes) {
-    if (!bytes || bytes.length < 5) return null;
+    if (!bytes || bytes.length !== 5) return null;
     const counter = bytes[4];
-    const mils = new DataView(Uint8Array.from(bytes.slice(0, 4)).buffer).getFloat32(0, true);
-    if (!isFinite(mils) || mils === 0) return { counter, error: true, mils: null, inches: null };
-    return { counter, error: false, mils, inches: mils / 1000 };
+    const value = new DataView(Uint8Array.from(bytes.slice(0, 4)).buffer).getFloat32(0, true);
+    if (!isFinite(value) || value === 0) return { counter, error: true, value: null, inches: null };
+    return { counter, error: false, value, inches: value / LEAKVUE1_UNITS_PER_INCH };
   }
 
   /** How many readings the counter skipped between two frames (0..255 wrap). 1 = none lost. */
@@ -192,7 +197,7 @@
 
   const api = {
     hexToBytes, bytesToHex, ascii, looksLikeText, trials, trialsLine, normUuid, shortUuid, uuidName, fmtFloat, isFirmwareService,
-    leakvue, leakvue1, LEAKVUE1_DATA_UUID, leakvueGap, aldInchesPerDay, LEAKVUE_DATA_UUID, LEAKVUE_PX_SCALE, LEAKVUE_IN_PER_PX,
+    leakvue, leakvue1, LEAKVUE1_DATA_UUID, LEAKVUE1_UNITS_PER_INCH, leakvueGap, aldInchesPerDay, LEAKVUE_DATA_UUID, LEAKVUE_PX_SCALE, LEAKVUE_IN_PER_PX,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
