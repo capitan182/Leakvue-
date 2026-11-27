@@ -131,16 +131,36 @@
   }
 
   /** Full analysis of a test visit. */
-  function analyze(test, settings) {
+  /**
+   * Every body of water in a test. The first is test.pool (id 'main'), so tests from before there
+   * could be several keep working; a separately tested spa, fountain etc. go in test.otherBodies.
+   */
+  function bodiesOf(test) {
+    const main = Object.assign({}, test.pool || {}, { id: 'main' });
+    return [main].concat((test.otherBodies || []).filter((b) => b && b.id && b.id !== 'main'));
+  }
+  /** Which body a scan belongs to (anything unknown counts as the first). */
+  function bodyIdOf(scan, test) {
+    const id = scan && scan.bodyId;
+    return id && (test.otherBodies || []).some((b) => b.id === id) ? id : 'main';
+  }
+
+  /** Full analysis of one body of water (the first one unless `body` is given). */
+  function analyze(test, settings, body) {
     settings = settings || {};
-    const area = surfaceArea(test.pool);
+    body = body || bodiesOf(test)[0];
+    const area = surfaceArea(body);
     const gpi = gallonsPerInch(area);
     const evapSetting = num(test.conditions && test.conditions.evaporation);
     const evap = evapSetting != null ? Math.max(0, evapSetting) : (num(settings.evaporation) != null ? num(settings.evaporation) : 0.25);
     const margin = num(settings.margin) != null ? Math.max(0, num(settings.margin)) : 0.1;
     const ctx = { gpi, evap, margin };
 
-    const scans = (test.scans || []).map((scan, index) => ({ scan, index, result: scanResult(scan, ctx) }));
+    // Scan numbers stay the same as on the tech screen, even when only one body's scans are used.
+    const scans = (test.scans || [])
+      .map((scan, index) => ({ scan, index }))
+      .filter((x) => bodyIdOf(x.scan, test) === body.id)
+      .map((x) => Object.assign(x, { result: scanResult(x.scan, ctx) }));
     const done = scans.filter((x) => x.result);
     // A scan where the level went UP had water added (auto-fill, hose, rain, spillover from another
     // body of water). It says nothing about a leak, so it's left out of every conclusion.
@@ -182,12 +202,27 @@
     else status = worst && worst.result.isLeak ? 'leak' : 'normal';
 
     return {
-      area, gpi, evap, margin,
+      body, area, gpi, evap, margin,
       evapGal: gpi == null ? null : evap * gpi,
       scans, done, valid, risen, baselines, on, off, worst, steps,
       autoPattern, pattern, status,
       rangeDiffers: !!(on && off && autoPattern !== 'structure' && autoPattern !== 'none'),
     };
+  }
+
+  /** Each body of water analyzed on its own scans: [{ body, a }]. */
+  function analyzeAll(test, settings) {
+    return bodiesOf(test).map((body) => ({ body, a: analyze(test, settings, body) }));
+  }
+
+  /**
+   * The one body that answers "how did the test come out?" for a list row or a headline:
+   * a leaking body first (the fastest loss), then one that needs a retest, then not leaking.
+   */
+  function headlineBody(all) {
+    const leaking = all.filter((x) => ['leak', 'resolved', 'remaining'].includes(x.a.status));
+    if (leaking.length) return leaking.sort((p, q) => q.a.worst.result.totalIn - p.a.worst.result.totalIn)[0];
+    return all.find((x) => x.a.status === 'rising') || all.find((x) => x.a.status === 'normal') || all[0];
   }
 
   /* ---------- friendly numbers ---------- */
@@ -231,6 +266,7 @@
   const api = {
     GAL_PER_SQFT_INCH, BATHTUB_GAL,
     num, surfaceArea, gallonsPerInch, fitLine, scanRate, scanResult, pumpPattern, analyze,
+    bodiesOf, bodyIdOf, analyzeAll, headlineBody,
     roundGal, fmtGal, fmtIn, bathtubs, sampleReadings,
   };
 

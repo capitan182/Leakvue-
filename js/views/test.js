@@ -13,10 +13,12 @@
     Object.keys(base).forEach((k) => { if (t[k] === undefined) t[k] = base[k]; });
     ['pool', 'conditions'].forEach((k) => { t[k] = Object.assign({}, base[k], t[k] || {}); });
     if (!Array.isArray(t.scans)) t.scans = [];
+    if (!Array.isArray(t.otherBodies)) t.otherBodies = [];
     t.scans = t.scans.map((s) => {
       const scan = Object.assign(LV.model.newScan({}, settings), s);
       if (!s.condition) scan.condition = s.pump === 'off' ? 'off' : 'on'; // older scans: pump on/off only
       scan.pump = C.conditionOf(scan).pump; // keeps the pump ON vs OFF math in step with the setting
+      scan.bodyId = K.bodyIdOf(scan, t);
       return scan;
     });
     return t;
@@ -99,43 +101,74 @@
     }, 800);
 
     /* ---------- pool ---------- */
-    function poolDimsTpl() {
-      const p = t.pool;
+    /** Size fields for one body of water. prefix is 'pool' or 'otherBodies.<n>'. */
+    function dimsTpl(prefix, p) {
       const ft = { inputmode: 'decimal', type: 'text' };
       const dims = [];
       if (p.shape === 'rectangle' || p.shape === 'oval') {
-        dims.push(f('Length (ft)', 'pool.length', ft), f('Width (ft)', 'pool.width', ft));
+        dims.push(f('Length (ft)', prefix + '.length', ft), f('Width (ft)', prefix + '.width', ft));
       } else if (p.shape === 'round') {
-        dims.push(f('Diameter (ft)', 'pool.diameter', ft));
+        dims.push(f('Diameter (ft)', prefix + '.diameter', ft));
       } else if (p.shape === 'kidney') {
-        dims.push(f('Length (ft)', 'pool.length', ft), f('Width, wide end (ft)', 'pool.width', ft), f('Width, narrow end (ft)', 'pool.width2', ft));
+        dims.push(f('Length (ft)', prefix + '.length', ft), f('Width, wide end (ft)', prefix + '.width', ft), f('Width, narrow end (ft)', prefix + '.width2', ft));
       } else if (p.shape === 'area') {
-        dims.push(f('Surface area (sq ft)', 'pool.area', ft));
+        dims.push(f('Surface area (sq ft)', prefix + '.area', ft));
       }
       if (/spa/i.test(p.body) && /pool/i.test(p.body)) {
-        dims.push(f('Attached spa surface (sq ft)', 'pool.spaArea', Object.assign({ hint: 'Add it if the spa shares water with the pool.' }, ft)));
+        dims.push(f('Attached spa surface (sq ft)', prefix + '.spaArea', Object.assign({ hint: 'Add it if the spa shares water with the pool.' }, ft)));
       }
       return html`${dims}`;
     }
-    function poolSummaryTpl() {
-      const area = K.surfaceArea(t.pool);
-      if (area == null) return html`<span class="muted">Enter the size to turn inches into gallons.</span>`;
+    function summaryTpl(p) {
+      const area = K.surfaceArea(p);
+      if (area == null) return html`<span class="muted">Size is optional. Inches a day is the standard; add the size to also show gallons.</span>`;
       const gpi = K.gallonsPerInch(area);
       return html`Surface ≈ <strong>${Math.round(area).toLocaleString()} sq ft</strong> · 1 inch of water ≈ <strong>${K.fmtGal(gpi)} gallons</strong>`;
+    }
+    function poolDimsTpl() { return dimsTpl('pool', t.pool); }
+    function poolSummaryTpl() { return summaryTpl(t.pool); }
+
+    /* ---------- other bodies of water (a spa, fountain… tested separately) ---------- */
+    const multi = () => t.otherBodies.length > 0;
+    function otherBodiesTpl() {
+      return html`${t.otherBodies.map((b, k) => html`
+        <div class="body-block" data-body="${b.id}">
+          <div class="card-head">
+            <h3>${S.bodyName(t, b.id)}</h3>
+            <button type="button" class="btn btn-quiet btn-sm" data-act="remove-body" data-index="${k}">Remove</button>
+          </div>
+          <div class="grid">
+            ${f('What is it?', 'otherBodies.' + k + '.body', { type: 'select', options: C.bodies, blankLabel: false })}
+            ${f('Shape', 'otherBodies.' + k + '.shape', { type: 'select', options: C.shapes, blankLabel: false })}
+            <div class="contents" data-role="dims-${k}">${dimsTpl('otherBodies.' + k, b)}</div>
+          </div>
+          <p class="pool-summary" data-role="summary-${k}">${summaryTpl(b)}</p>
+        </div>`)}`;
+    }
+    function renderBodies() {
+      $('[data-role="other-bodies"]', root).innerHTML = otherBodiesTpl();
+      $('[data-role="bodies-title"]', root).textContent = multi() ? 'Bodies of water' : 'Pool size';
+      $('[data-role="main-name"]', root).hidden = !multi();
+      $('[data-role="main-name"]', root).textContent = S.bodyName(t, 'main');
+    }
+    /** The analysis for the body a scan belongs to. */
+    function analysisFor(s) {
+      return K.analyze(t, settings, K.bodiesOf(t).find((b) => b.id === K.bodyIdOf(s, t)));
     }
 
     /* ---------- scans ---------- */
     function compareOptions(i) {
       const opts = [{ id: '', label: 'Automatic (last scan with the same setting)' }];
+      const body = K.bodyIdOf(t.scans[i], t);
       for (let k = 0; k < i; k++) {
         const s = t.scans[k];
-        opts.push({ id: s.id, label: S.scanName({ scan: s, index: k }) });
+        if (K.bodyIdOf(s, t) === body) opts.push({ id: s.id, label: S.scanName({ scan: s, index: k }) });
       }
       return opts;
     }
 
     function resultLine(s) {
-      const a = analysis();
+      const a = analysisFor(s);
       const r = K.scanResult(s, { gpi: a.gpi, evap: a.evap, margin: a.margin });
       if (!r) return html`<span class="muted">Enter the water drop when the scan finishes.</span>`;
       if (r.rising) {
@@ -165,10 +198,11 @@
         return html`
           <article class="scan${iso ? ' scan-iso' : ''}" data-scan="${s.id}">
             <header class="scan-head">
-              <h3><span class="scan-num">${i + 1}</span> <span data-role="scan-title">${iso ? 'Rescan after isolating' : 'Scan'}</span></h3>
+              <h3><span class="scan-num">${i + 1}</span> <span data-role="scan-title">${iso ? 'Rescan after isolating' : 'Scan'}${multi() ? html` <span class="muted">· ${S.bodyName(t, K.bodyIdOf(s, t))}</span>` : ''}</span></h3>
               <button type="button" class="btn btn-quiet btn-sm" data-act="remove-scan" data-index="${i}">Remove</button>
             </header>
             <div class="grid">
+              ${multi() ? f('Which body of water?', 'scans.' + i + '.bodyId', { type: 'select', blankLabel: false, options: K.bodiesOf(t).map((b) => ({ id: b.id, label: S.bodyName(t, b.id) })) }) : ''}
               ${f('What was running?', 'scans.' + i + '.condition', { type: 'select', blankLabel: false, options: C.conditions.map((c) => ({ id: c.id, label: c.label })) })}
               ${f('Scan type', 'scans.' + i + '.purpose', { type: 'select', blankLabel: false, options: [{ id: 'baseline', label: 'Test scan' }, { id: 'isolation', label: 'Rescan after isolating' }] })}
               ${iso ? f('What did you isolate?', 'scans.' + i + '.isolated', { list: 'lv-isolations', placeholder: 'e.g. Main drain, Return lines' }) : ''}
@@ -199,7 +233,16 @@
 
     /* ---------- live results ---------- */
     function resultsTpl() {
-      const a = analysis();
+      if (!multi()) return bodyResultsTpl(analysis());
+      const all = K.analyzeAll(t, settings);
+      if (!all.some((x) => x.a.done.length)) return html`<p class="muted small">Results appear here as you record scans.</p>`;
+      return html`${all.map((x) => html`
+        <div class="body-results">
+          <h3>${S.bodyName(t, x.body.id)}</h3>
+          ${x.a.done.length ? bodyResultsTpl(x.a) : html`<p class="muted small">No scans for this one yet.</p>`}
+        </div>`)}`;
+    }
+    function bodyResultsTpl(a) {
       if (!a.done.length) return html`<p class="muted small">Results appear here as you record scans.</p>`;
       const pat = S.pattern(a);
       const rows = S.baselineRows(a);
@@ -220,7 +263,7 @@
             <p class="small">${txt.text}</p>
           </div>`;
         })}
-        ${a.gpi == null ? html`<p class="small muted">Add the pool size above to see gallons.</p>` : ''}
+        ${a.gpi == null ? html`<p class="small muted">Add the size above to also see gallons.</p>` : ''}
       `;
     }
     function badgeIcon(tone) {
@@ -259,13 +302,17 @@
       </section>
 
       <section class="card">
-        <h2>Pool size</h2>
+        <h2 data-role="bodies-title">${multi() ? 'Bodies of water' : 'Pool size'}</h2>
+        <h3 class="body-main-name" data-role="main-name" ${multi() ? '' : 'hidden'}>${S.bodyName(t, 'main')}</h3>
         <div class="grid">
           ${f('What are we testing?', 'pool.body', { type: 'select', options: C.bodies, blankLabel: false })}
           ${f('Shape', 'pool.shape', { type: 'select', options: C.shapes, blankLabel: false })}
           <div class="contents" data-role="dims">${poolDimsTpl()}</div>
         </div>
         <p class="pool-summary" data-role="pool-summary">${poolSummaryTpl()}</p>
+        <div data-role="other-bodies">${otherBodiesTpl()}</div>
+        <button type="button" class="btn btn-sm add-body" data-act="add-body">+ Add another body of water</button>
+        <p class="muted small add-body-hint">For a spa, fountain or basin you test separately, with its own scans. If you test them as one system, leave this alone.</p>
       </section>
 
       <section class="card">
@@ -371,6 +418,20 @@
       if (path.indexOf('pool.') === 0) {
         $('[data-role="pool-summary"]', root).innerHTML = poolSummaryTpl();
       }
+      const ob = /^otherBodies\.(\d+)\.(\w+)$/.exec(path);
+      if (ob) {
+        const k = Number(ob[1]);
+        if (ob[2] === 'shape' || ob[2] === 'body') $('[data-role="dims-' + k + '"]', root).innerHTML = dimsTpl('otherBodies.' + k, t.otherBodies[k]);
+        const sum = $('[data-role="summary-' + k + '"]', root);
+        if (sum) sum.innerHTML = summaryTpl(t.otherBodies[k]);
+      }
+      // A body's kind changed: its name shows on the size card, the scans and the results.
+      if (multi() && (path === 'pool.body' || (ob && ob[2] === 'body'))) {
+        $$('[data-body] h3', root).forEach((h, k) => { h.textContent = S.bodyName(t, t.otherBodies[k].id); });
+        $('[data-role="main-name"]', root).textContent = S.bodyName(t, 'main');
+        renderScans();
+      }
+      if (/^scans\.\d+\.bodyId$/.test(path)) renderScans();
       if (/^scans\.\d+\.(condition|purpose)$/.test(path)) {
         const s = t.scans[Number(path.split('.')[1])];
         if (path.endsWith('.purpose') && s.purpose !== 'isolation') { s.isolated = ''; s.compareTo = ''; }
@@ -379,7 +440,8 @@
       } else if (/^scans\.\d+\.durationMin$/.test(path)) {
         tickTimers();
       }
-      if (path.indexOf('pool.') === 0 || path.indexOf('conditions.') === 0 || path.indexOf('scans.') === 0 || path === 'diagnosis') {
+      if (path.indexOf('pool.') === 0 || path.indexOf('otherBodies.') === 0 || path.indexOf('conditions.') === 0 ||
+          path.indexOf('scans.') === 0 || path === 'diagnosis') {
         updateResultLines();
         renderResultsSoon();
       }
@@ -391,17 +453,22 @@
       const act = btn.dataset.act;
       if (act === 'add-scan') {
         const purpose = btn.dataset.purpose;
+        // A new scan goes to the first body of water with no scans yet (pool first, then a spa that
+        // was just added), otherwise to the same body as the last scan.
+        const prev = t.scans[t.scans.length - 1];
+        const empty = K.bodiesOf(t).find((b) => !t.scans.some((x) => K.bodyIdOf(x, t) === b.id));
+        const bodyId = purpose !== 'isolation' && empty ? empty.id : prev ? K.bodyIdOf(prev, t) : 'main';
         let condition;
         if (purpose === 'isolation') {
           // A rescan usually repeats the setting where the leak showed most.
-          const a = analysis();
+          const a = analysisFor({ bodyId });
           condition = a.worst ? C.conditionOf(a.worst.scan).id : 'on';
         } else {
           // Usual order: entire system first, then pump on, then anything else the tech picks.
-          const has = (side) => t.scans.some((x) => x.purpose !== 'isolation' && x.pump === side);
+          const has = (side) => t.scans.some((x) => x.purpose !== 'isolation' && x.pump === side && K.bodyIdOf(x, t) === bodyId);
           condition = !has('off') ? 'off' : !has('on') ? 'on' : 'feature';
         }
-        t.scans.push(LV.model.newScan({ condition, pump: C.conditions.find((c) => c.id === condition).pump, purpose }, settings));
+        t.scans.push(LV.model.newScan({ condition, pump: C.conditions.find((c) => c.id === condition).pump, purpose, bodyId }, settings));
         renderScans();
         renderResults();
         touch();
@@ -411,6 +478,26 @@
           const focus = $(purpose === 'isolation' ? '[data-field$=".isolated"]' : '[data-field$=".dropIn"]', last);
           if (focus) focus.focus({ preventScroll: true });
         }
+      } else if (act === 'add-body') {
+        // The other body is usually the spa when the first is the pool, and the pool otherwise.
+        const kind = /spa/i.test(t.pool.body || '') ? 'Pool' : 'Spa';
+        t.otherBodies.push({ id: LV.util.uid(), body: kind, shape: kind === 'Spa' ? 'round' : 'rectangle', length: '', width: '', width2: '', diameter: '', area: '' });
+        renderBodies();
+        renderScans();
+        renderResults();
+        touch();
+      } else if (act === 'remove-body') {
+        const k = Number(btn.dataset.index);
+        const b = t.otherBodies[k];
+        const its = t.scans.filter((s) => s.bodyId === b.id);
+        if (!confirm('Remove the ' + S.bodyName(t, b.id).toLowerCase() + (its.length ? ' and its ' + plural(its.length, 'scan') : '') + '?')) return;
+        t.otherBodies.splice(k, 1);
+        t.scans = t.scans.filter((s) => s.bodyId !== b.id);
+        t.scans.forEach((s) => { if (its.some((x) => x.id === s.compareTo)) s.compareTo = ''; });
+        renderBodies();
+        renderScans();
+        renderResults();
+        touch();
       } else if (act === 'remove-scan') {
         const i = Number(btn.dataset.index);
         if (!confirm('Remove scan ' + (i + 1) + '?')) return;

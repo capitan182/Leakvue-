@@ -89,6 +89,31 @@ assert.ok(r.rising, 'a typed minus with Up is still a rise');
 r = C.scanResult({ dropIn: '0.002', durationMin: 15, direction: 'down' }, ctx);
 assert.ok(!r.rising);
 
+// Several bodies of water tested separately: each is analyzed on its own scans and size
+{
+  const spa = { id: 'spa1', body: 'Spa', shape: 'round', diameter: 7 };
+  const test = {
+    pool, otherBodies: [spa],
+    scans: [mk('on', 1.1), mk('off', 0.45), mk('on', 0.27, { id: 's-on', bodyId: 'spa1' }), mk('off', 0.26, { id: 's-off', bodyId: 'spa1' })],
+  };
+  const all = C.analyzeAll(test, S);
+  assert.deepStrictEqual(all.map((x) => x.body.id), ['main', 'spa1']);
+  assert.strictEqual(all[0].a.status, 'leak');
+  assert.strictEqual(all[0].a.done.length, 2, 'pool uses only pool scans');
+  assert.strictEqual(all[1].a.status, 'normal', 'spa holds water');
+  close(all[1].a.area, Math.PI * 3.5 * 3.5, 1e-9, 'spa area');
+  assert.deepStrictEqual(all[1].a.done.map((x) => x.index), [2, 3], 'scan numbers stay as on the tech screen');
+  assert.strictEqual(C.headlineBody(all).body.id, 'main', 'the leaking body leads');
+  assert.strictEqual(C.analyze(test, S).body.id, 'main', 'default is the first body');
+  // a scan pointing at a body that was removed falls back to the first
+  assert.strictEqual(C.bodyIdOf({ bodyId: 'gone' }, test), 'main');
+  // no extra bodies: exactly as before
+  assert.strictEqual(C.analyzeAll({ pool, scans: [mk('on', 1.1)] }, S).length, 1);
+  // a retest on one body beats "not leaking" on another for the headline
+  const t2 = { pool, otherBodies: [spa], scans: [mk('on', 0.27), up('on', 0.3, { bodyId: 'spa1' })] };
+  assert.strictEqual(C.headlineBody(C.analyzeAll(t2, S)).a.status, 'rising');
+}
+
 // Friendly rounding
 assert.strictEqual(C.fmtGal(4.44), '4.4');
 assert.strictEqual(C.fmtGal(47.6), '48');

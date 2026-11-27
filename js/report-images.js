@@ -131,6 +131,7 @@
     if (leak) amount = (p.qual === 'Up to' ? 'Up to ' : '') + p.big + ' inches a day';
     else if (p.kind === 'normal' && p.big) amount = 'Drops ' + p.big + ' inches a day';
     else if (retest) amount = retest[1];
+    if (amount && info.bodyName) amount = info.bodyName + ': ' + amount.charAt(0).toLowerCase() + amount.slice(1);
     if (amount) {
       ctx.fillStyle = '#142233';
       fit(ctx, amount, '800', 170, 70, maxW);

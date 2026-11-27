@@ -39,12 +39,18 @@ Air left in the tube, a float near the edge of the zone, or a bumped canister ar
 
 Scans can come out + (level rose) as well as −: an auto-fill or hose left on, rain, or water moving between bodies (spa spillover). A rise means water was being added, so it says nothing about a leak. `scanResult` marks it `rising`; `analyze` leaves rising scans out of baselines, rescans, the pump pattern and the worst case (`a.valid` / `a.risen`), and if every scan rose the status is `'rising'`. The tech screen flags it on the scan and in Results; the homeowner report says **"We need to test again"** (`C.plain.retest`), never "not leaking"; the ServiceTitan picture says RETEST NEEDED. Manual entry has a Down/Up switch (`scan.direction`) because the iPhone decimal keypad has no minus key; a typed minus still works.
 
+## Scan settings and several bodies of water (owner, 27 Nov 2026)
+
+- **What was running** is a per-scan setting, `scan.condition`, from `C.conditions`: entire system (pump off), pump on, water feature pump on, spa pump/jets on, cleaner/booster pump on, floor zone system on, basin pump on, basin pump off. Each has a `pump` side ('on' / 'off' / null). `scan.pump` is kept equal to that side (the test screen syncs it), and the pump ON vs OFF diagnosis uses only the on/off sides; null settings count for the worst case and show in the technical pages. Older scans with only `pump` are read as pump on / entire system. Assumption to confirm with the owner: "Entire system" means everything off.
+- **Bodies of water:** a pool and spa may be tested as one system (one body, e.g. "Pool + spa" with the attached-spa area) or separately. The first body is still `test.pool` (id `'main'`), so old tests are unchanged; separately tested ones go in `test.otherBodies` (`{ id, body, shape, sizes… }`), and each scan has `scan.bodyId` (unknown → 'main'). `K.analyze(test, settings, body)` analyzes one body on its own scans and size, keeping the tech-screen scan numbers; `K.analyzeAll` does all; `K.headlineBody` picks the one to lead with (leak first, then retest, then not leaking). `S.bodyName` gives "Pool", "Spa", "Spa 2". With one body the screens and report are exactly as before; with several, the test screen has a "Which body of water?" field per scan and Results per body, the list shows "Pool + Spa" and "Pool: Leak · …", and the report's first card lists each body with its own verdict, one "where" card per leaking body, technical pages per body, and the ServiceTitan picture leads with the headline body ("Pool: up to 1.10 inches a day"). Size is optional for every body.
+
 ## The readings contract (where Bluetooth plugs in)
 
 A scan is an object in `test.scans[]` (see `LV.model.newScan` in `js/views/tests.js`):
 
 ```js
-{ id, pump: 'on'|'off', purpose: 'baseline'|'isolation', isolated, compareTo,
+{ id, bodyId, condition, pump: 'on'|'off'|null, purpose: 'baseline'|'isolation', isolated, compareTo,
+  direction: 'down'|'up',       // manual entry only
   durationMin, dropIn,          // manual entry (inches), used when there are no readings
   readings: [[secondsSinceStart, levelInches], ...] | null,
   timerStartedAt }

@@ -21,12 +21,16 @@
       root.innerHTML = html`<div class="empty"><h2>Test not found</h2><a class="btn" href="#/tests">Back to tests</a></div>`;
       return {};
     }
-    const a = K.analyze(t, s);
-    const pat = S.pattern(a);
+    // Each body of water (pool, separately tested spa…) is analyzed on its own scans. With one
+    // body the report is exactly the three plain cards; with several, card 1 lists each result.
+    const all = K.analyzeAll(t, s);
+    const shown = all.filter((x) => x.a.done.length);
+    const isMulti = shown.length > 1;
+    const main = shown[0] || all[0];
+    const a = main.a;
+    const pool = main.body;
     const cond = t.conditions || {};
-    const pool = t.pool || {};
     const dateText = fmtDate(t.date, { year: 'numeric', month: 'long', day: 'numeric' });
-    const withReadings = a.done.filter((x) => x.result.source === 'readings');
     const contact = [s.phone, s.website].filter(Boolean).join(' · ');
 
     const prevTitle = document.title;
@@ -49,9 +53,30 @@
 
     /* ---------- The homeowner report: three plain cards ---------- */
     const p = S.plain(a, s, pool.body);
+    const plains = shown.map((x) => ({ x, p: S.plain(x.a, s, x.body.body), name: S.bodyName(t, x.body.id) }));
+
+    /* 1 (several bodies). One row per body of water. */
+    const answerMulti = isMulti ? card('rc-answer', html`
+      ${brand}
+      <h2 class="rc-title">Your leak test</h2>
+      <p class="rc-sub">${dateText}</p>
+      <div class="body-rows">
+        ${plains.map(({ p: q, name }) => html`
+          <div class="body-row">
+            <div class="body-row-name">${name}</div>
+            ${q.kind === 'leak' ? html`<div class="verdict verdict-leak">Leaking</div>
+              <div class="body-row-num"><strong>${q.big}</strong> inches a day</div>` : ''}
+            ${q.kind === 'normal' ? html`<div class="verdict verdict-ok">${raw(ICONS.ok)} Not leaking</div>
+              ${q.big ? html`<div class="body-row-num"><strong>${q.big}</strong> inches a day, evaporation</div>` : ''}` : ''}
+            ${q.kind === 'retest' ? html`<div class="verdict verdict-warn">${raw(ICONS.warn)} Test again</div>
+              <div class="body-row-num">Water was being added during the test</div>` : ''}
+          </div>`)}
+      </div>
+      <ul class="rc-lines"><li>Normal evaporation is only about ${K.fmtIn(a.evap)} inches a day. Losing more than that means a leak.</li></ul>
+    `) : '';
 
     /* 1. Is it leaking, and how much? */
-    const answer = card('rc-answer', html`
+    const answer = isMulti ? answerMulti : card('rc-answer', html`
       ${brand}
       <h2 class="rc-title">Your ${p.thing} leak test</h2>
       <p class="rc-sub">${dateText}</p>
@@ -77,13 +102,17 @@
         <ul class="rc-lines">${p.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ''}
     `);
 
-    /* 2. Where is it? */
-    const where = p.where ? card('rc-where', html`
-      <h2 class="rc-title">${p.where.title}</h2>
-      ${p.where.spot ? html`<p class="rc-spot">${p.where.spot}</p>` : ''}
-      ${p.where.detail ? html`<p class="rc-plain">${p.where.detail}</p>` : ''}
-      ${p.where.why ? html`<p class="rc-why"><span>How we know</span>${p.where.why}</p>` : ''}
-    `) : '';
+    /* 2. Where is it? (one card per leaking body of water) */
+    const whereCard = (w, name) => card('rc-where', html`
+      ${name ? html`<div class="rc-body-tag">${name}</div>` : ''}
+      <h2 class="rc-title">${w.title}</h2>
+      ${w.spot ? html`<p class="rc-spot">${w.spot}</p>` : ''}
+      ${w.detail ? html`<p class="rc-plain">${w.detail}</p>` : ''}
+      ${w.why ? html`<p class="rc-why"><span>How we know</span>${w.why}</p>` : ''}
+    `);
+    const where = isMulti
+      ? plains.filter((y) => y.p.where).map((y) => whereCard(y.p.where, y.name))
+      : (p.where ? whereCard(p.where, '') : '');
 
     /* 3. What happens next (with the fine print) */
     const nextPlain = card('rc-next', html`
@@ -98,14 +127,18 @@
       <p class="fine">Report ${t.number}</p>
     `);
 
-    /* ---------- Technical pages (off unless the tech switches them on) ---------- */
+    /* ---------- Technical pages (off unless the tech switches them on), per body of water ---------- */
+    function techPages(a, pool, label) {
+    const pat = S.pattern(a);
+    const withReadings = a.done.filter((x) => x.result.source === 'readings');
+    const tag = label ? html`<div class="rc-body-tag">${label}</div>` : '';
 
     /* 2. Pump on vs off */
     const rows = S.baselineRows(a);
     const evapCaption = a.evapGal != null
       ? 'Normal evaporation today: about ' + K.fmtGal(a.evapGal) + ' gallons a day (' + K.fmtIn(a.evap) + '″).'
       : 'Normal evaporation today: about ' + K.fmtIn(a.evap) + '″ a day.';
-    const compare = rows.length ? card('rc-compare', html`
+    const compare = rows.length ? card('rc-compare', html`${tag}
       <h2 class="rc-title">${rows.length > 1 ? 'Each setting we tested' : 'What we measured'}</h2>
       <p class="rc-sub">How fast the pool lost water in each ${rows.length > 1 ? 'test' : 'scan'}${a.gpi != null ? ', in gallons per day' : ', in inches per day'}.</p>
       ${LV.charts.lossBars(rows, { caption: evapCaption })}
@@ -113,7 +146,7 @@
     `) : '';
 
     /* 3. Isolation rescans */
-    const steps = a.steps.length ? card('rc-steps', html`
+    const steps = a.steps.length ? card('rc-steps', html`${tag}
       <h2 class="rc-title">Narrowing it down</h2>
       <p class="rc-sub">We closed off part of the system and scanned again to see whether the leak stopped.</p>
       ${a.steps.map((st, i) => {
@@ -134,7 +167,7 @@
       yMin = Math.min(yMin, ext[0]);
       yMax = Math.max(yMax, ext[1]);
     });
-    const graphs = withReadings.length ? card('rc-graphs', html`
+    const graphs = withReadings.length ? card('rc-graphs', html`${tag}
       <h2 class="rc-title">Water level during each scan</h2>
       <p class="rc-sub">The steeper the line slopes down, the faster the pool is losing water. All graphs use the same scale.</p>
       ${LV.charts.LEVEL_LEGEND}
@@ -146,7 +179,7 @@
     `) : '';
 
     /* 6. Details: the numbers behind every chart */
-    const details = card('rc-details', html`
+    const details = card('rc-details', html`${tag}
       <h2 class="rc-title">Test details</h2>
       ${a.done.length ? html`<table class="rc-table">
         <thead><tr><th>Scan</th><th>Time</th><th>Drop</th><th>Loss a day</th></tr></thead>
@@ -167,6 +200,9 @@
         <div><dt>Report #</dt><dd>${t.number}</dd></div>
       </dl>
     `);
+    return html`${compare}${steps}${graphs}${details}`;
+    }
+    const technical = (isMulti ? shown : [main]).map((x) => techPages(x.a, x.body, isMulti ? S.bodyName(t, x.body.id) : ''));
 
     root.innerHTML = html`
       <div class="report-toolbar no-print">
@@ -195,7 +231,7 @@
       </label>
       <div class="report-cards">
         ${answer}${where}${nextPlain}
-        <div class="rc-technical" data-role="technical" ${t.reportDetail ? '' : 'hidden'}>${compare}${steps}${graphs}${details}</div>
+        <div class="rc-technical" data-role="technical" ${t.reportDetail ? '' : 'hidden'}>${technical}</div>
       </div>
     `;
     LV.charts.enhance(root);
@@ -211,7 +247,13 @@
     async function saveSummary(btn) {
       btn.disabled = true;
       try {
-        const img = LV.reportImages.summaryPicture(p, { company: s.companyName, date: fmtDate(t.date), number: t.number }, baseName());
+        // With several bodies of water, the picture leads with the one that matters most (a leak first).
+        const top = isMulti ? K.headlineBody(shown) : main;
+        const pTop = isMulti ? S.plain(top.a, s, top.body.body) : p;
+        const img = LV.reportImages.summaryPicture(pTop, {
+          company: s.companyName, date: fmtDate(t.date), number: t.number,
+          bodyName: isMulti ? S.bodyName(t, top.body.id) : '',
+        }, baseName());
         const title = 'Leak test summary ' + (t.number || '');
         if (LV.native.isNative()) {
           if (await LV.native.shareImages([img], title)) toast('Picture ready');

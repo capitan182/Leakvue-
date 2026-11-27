@@ -5,6 +5,7 @@
   const { html, $, todayISO, fmtDate, uid, plural, toast } = LV.util;
   const C = LV.catalog;
   const K = LV.calc;
+  const S = LV.story;
 
   LV.model = {
     newTest(fields, settings) {
@@ -18,6 +19,7 @@
         date: todayISO(),
         technician: '',
         pool: { body: 'Pool', shape: 'rectangle', length: '', width: '', width2: '', diameter: '', area: '', spaArea: '' },
+        otherBodies: [], // a spa, fountain etc. tested separately: { id, body, shape, length, width, ... }
         conditions: { evaporation: String(settings.evaporation), weather: '', autofillOff: true },
         scans: [],
         diagnosis: '',
@@ -30,6 +32,7 @@
     newScan(fields, settings) {
       return Object.assign({
         id: uid(),
+        bodyId: 'main', // which body of water ('main' = test.pool; others are in test.otherBodies)
         condition: 'on', // what was running; see C.conditions
         pump: 'on', // which side of the pump ON vs OFF comparison (null = its own setting)
         purpose: 'baseline',
@@ -84,14 +87,17 @@
 
   /** One-line outcome for the list. */
   function outcome(t, settings) {
-    const a = K.analyze(t, settings);
+    const all = K.analyzeAll(t, settings);
+    const top = K.headlineBody(all);
+    const a = top.a;
+    // With several bodies of water, say which one the result is about.
+    const who = all.length > 1 && a.status !== 'pending' ? S.bodyName(t, top.body.id) + ': ' : '';
     if (a.status === 'pending') return null;
-    if (a.status === 'resolved') return { tone: 'ok', text: 'Leak isolated' };
-    if (a.status === 'remaining') return { tone: 'warn', text: 'Still searching' };
+    if (a.status === 'resolved') return { tone: 'ok', text: who + 'Leak isolated' };
+    if (a.status === 'remaining') return { tone: 'warn', text: who + 'Still searching' };
     if (a.status === 'normal') return { tone: 'ok', text: 'Not leaking' };
-    if (a.status === 'rising') return { tone: 'warn', text: 'Retest: water was added' };
-    const w = a.worst.result;
-    return { tone: 'danger', text: 'Leak · ' + K.fmtIn(w.totalIn) + ' in/day' };
+    if (a.status === 'rising') return { tone: 'warn', text: who + 'Retest: water was added' };
+    return { tone: 'danger', text: who + 'Leak · ' + K.fmtIn(a.worst.result.totalIn) + ' in/day' };
   }
 
   async function create(sample) {
@@ -152,8 +158,11 @@
         const o = outcome(t, settings);
         const scans = (t.scans || []).length;
         const meta = [t.technician, scans ? plural(scans, 'scan') : 'No scans yet'].filter(Boolean).join(' · ');
+        const bodies = K.bodiesOf(t);
         const area = K.surfaceArea(t.pool || {});
-        const poolLine = [(t.pool && t.pool.body) || 'Pool', area ? Math.round(area).toLocaleString() + ' sq ft' : 'size not entered'].join(' · ');
+        const poolLine = bodies.length > 1
+          ? bodies.map((b) => S.bodyName(t, b.id)).join(' + ')
+          : [(t.pool && t.pool.body) || 'Pool', area ? Math.round(area).toLocaleString() + ' sq ft' : 'size not entered'].join(' · ');
         return html`
           <a class="job-card" href="#/test/${t.id}">
             <div class="job-card-top">

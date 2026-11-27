@@ -7,6 +7,15 @@
   const K = LV.calc;
 
   function pumpLabel(pump) { return C.label(C.pumps, pump) || 'Pump ?'; }
+
+  /** "Pool", "Spa", or "Spa 2" when two bodies have the same kind. */
+  function bodyName(test, id) {
+    const all = K.bodiesOf(test);
+    const b = all.find((x) => x.id === id) || all[0];
+    const kind = b.body || 'Pool';
+    const same = all.filter((x) => (x.body || 'Pool') === kind);
+    return same.length > 1 ? kind + ' ' + (same.indexOf(b) + 1) : kind;
+  }
   /** "Pump on", "Entire system", "Water feature pump on"… */
   function settingLabel(scan) { return C.conditionOf(scan).short; }
 
@@ -200,5 +209,5 @@
     return out;
   }
 
-  LV.story = { pumpLabel, settingLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
+  LV.story = { pumpLabel, bodyName, settingLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
 })();
