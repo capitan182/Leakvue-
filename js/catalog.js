@@ -25,6 +25,25 @@
       { id: 'off', label: 'Pump OFF', short: 'OFF' },
     ],
 
+    /* What was running during a scan (owner's list, 27 Nov 2026). `pump` says which side of the main
+       pump ON / OFF comparison a scan counts as; null means it's its own setting, shown and used for
+       the worst case but not for the pump ON vs OFF diagnosis. "Entire system" = everything off. */
+    conditions: [
+      { id: 'off', label: 'Entire system (pump off)', short: 'Entire system', pump: 'off' },
+      { id: 'on', label: 'Pump on', short: 'Pump on', pump: 'on' },
+      { id: 'feature', label: 'Water feature pump on', short: 'Water feature pump on', pump: null },
+      { id: 'spa', label: 'Spa pump / jets on', short: 'Spa pump on', pump: null },
+      { id: 'cleaner', label: 'Cleaner / booster pump on', short: 'Cleaner pump on', pump: null },
+      { id: 'floor', label: 'Floor zone system on', short: 'Floor zone system on', pump: null },
+      { id: 'basin-on', label: 'Basin pump on', short: 'Basin pump on', pump: 'on' },
+      { id: 'basin-off', label: 'Basin pump off', short: 'Basin pump off', pump: 'off' },
+    ],
+    /** The setting a scan ran with (older scans only have pump on/off). */
+    conditionOf(scan) {
+      const id = scan.condition || (scan.pump === 'off' ? 'off' : 'on');
+      return LV.catalog.conditions.find((c) => c.id === id) || LV.catalog.conditions[1];
+    },
+
     isolationSuggestions: [
       'Main drain',
       'Skimmer line',

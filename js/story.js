@@ -7,10 +7,12 @@
   const K = LV.calc;
 
   function pumpLabel(pump) { return C.label(C.pumps, pump) || 'Pump ?'; }
+  /** "Pump on", "Entire system", "Water feature pump on"… */
+  function settingLabel(scan) { return C.conditionOf(scan).short; }
 
   function scanName(x) {
     const s = x.scan;
-    let name = 'Scan ' + (x.index + 1) + ' · ' + pumpLabel(s.pump);
+    let name = 'Scan ' + (x.index + 1) + ' · ' + settingLabel(s);
     if (s.purpose === 'isolation') name += ' · ' + (s.isolated ? s.isolated + ' isolated' : 'rescan');
     return name;
   }
@@ -18,10 +20,11 @@
   /** Bar rows for the baseline (non-isolation) scans. */
   function baselineRows(a) {
     const counts = {};
-    a.baselines.forEach((x) => { counts[x.scan.pump] = (counts[x.scan.pump] || 0) + 1; });
+    const key = (x) => C.conditionOf(x.scan).id;
+    a.baselines.forEach((x) => { counts[key(x)] = (counts[key(x)] || 0) + 1; });
     return a.baselines.map((x) => ({
-      label: pumpLabel(x.scan.pump),
-      note: counts[x.scan.pump] > 1 ? 'scan ' + (x.index + 1) : '',
+      label: settingLabel(x.scan),
+      note: counts[key(x)] > 1 ? 'scan ' + (x.index + 1) : '',
       result: x.result,
       x,
     }));
@@ -29,8 +32,8 @@
 
   function stepRows(step) {
     const rows = [];
-    if (step.base) rows.push({ label: 'Before', note: pumpLabel(step.base.scan.pump).toLowerCase(), result: step.base.result });
-    rows.push({ label: 'After isolating ' + (step.scan.isolated || 'the line'), note: pumpLabel(step.scan.pump).toLowerCase(), result: step.result });
+    if (step.base) rows.push({ label: 'Before', note: settingLabel(step.base.scan).toLowerCase(), result: step.base.result });
+    rows.push({ label: 'After isolating ' + (step.scan.isolated || 'the line'), note: settingLabel(step.scan).toLowerCase(), result: step.result });
     return rows;
   }
 
@@ -198,5 +201,5 @@
     return out;
   }
 
-  LV.story = { pumpLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
+  LV.story = { pumpLabel, settingLabel, scanName, baselineRows, stepRows, stepText, headline, pattern, amount, plain };
 })();

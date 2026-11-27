@@ -106,7 +106,7 @@
       ? 'Normal evaporation today: about ' + K.fmtGal(a.evapGal) + ' gallons a day (' + K.fmtIn(a.evap) + '″).'
       : 'Normal evaporation today: about ' + K.fmtIn(a.evap) + '″ a day.';
     const compare = rows.length ? card('rc-compare', html`
-      <h2 class="rc-title">${rows.length > 1 ? 'Pump on vs. pump off' : 'What we measured'}</h2>
+      <h2 class="rc-title">${rows.length > 1 ? 'Each setting we tested' : 'What we measured'}</h2>
       <p class="rc-sub">How fast the pool lost water in each ${rows.length > 1 ? 'test' : 'scan'}${a.gpi != null ? ', in gallons per day' : ', in inches per day'}.</p>
       ${LV.charts.lossBars(rows, { caption: evapCaption })}
       ${pat ? html`<div class="callout"><div class="callout-k">What this means</div><strong>${pat.title}</strong><p>${pat.body}</p></div>` : ''}

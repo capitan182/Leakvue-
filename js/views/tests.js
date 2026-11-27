@@ -30,7 +30,8 @@
     newScan(fields, settings) {
       return Object.assign({
         id: uid(),
-        pump: 'on',
+        condition: 'on', // what was running; see C.conditions
+        pump: 'on', // which side of the pump ON vs OFF comparison (null = its own setting)
         purpose: 'baseline',
         isolated: '',
         compareTo: '',
@@ -56,13 +57,13 @@
         notes: 'Sample data. Delete this test whenever you like.',
       }, settings);
       const start = Date.now() - 3600 * 1000;
-      const on = LV.model.newScan({ pump: 'on', readings: K.sampleReadings(1.1, 15, 11), createdAt: start }, settings);
-      const off = LV.model.newScan({ pump: 'off', readings: K.sampleReadings(0.45, 15, 23), createdAt: start + 1200e3 }, settings);
+      const off = LV.model.newScan({ condition: 'off', pump: 'off', readings: K.sampleReadings(0.45, 15, 23), createdAt: start }, settings);
+      const on = LV.model.newScan({ condition: 'on', pump: 'on', readings: K.sampleReadings(1.1, 15, 11), createdAt: start + 1200e3 }, settings);
       const iso = LV.model.newScan({
-        pump: 'on', purpose: 'isolation', isolated: 'Return lines', compareTo: on.id,
+        condition: 'on', pump: 'on', purpose: 'isolation', isolated: 'Return lines', compareTo: on.id,
         readings: K.sampleReadings(0.27, 15, 37), createdAt: start + 2400e3,
       }, settings);
-      t.scans = [on, off, iso];
+      t.scans = [off, on, iso];
       return t;
     },
   };

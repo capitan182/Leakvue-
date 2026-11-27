@@ -13,7 +13,12 @@
     Object.keys(base).forEach((k) => { if (t[k] === undefined) t[k] = base[k]; });
     ['pool', 'conditions'].forEach((k) => { t[k] = Object.assign({}, base[k], t[k] || {}); });
     if (!Array.isArray(t.scans)) t.scans = [];
-    t.scans = t.scans.map((s) => Object.assign(LV.model.newScan({}, settings), s));
+    t.scans = t.scans.map((s) => {
+      const scan = Object.assign(LV.model.newScan({}, settings), s);
+      if (!s.condition) scan.condition = s.pump === 'off' ? 'off' : 'on'; // older scans: pump on/off only
+      scan.pump = C.conditionOf(scan).pump; // keeps the pump ON vs OFF math in step with the setting
+      return scan;
+    });
     return t;
   }
 
@@ -121,7 +126,7 @@
 
     /* ---------- scans ---------- */
     function compareOptions(i) {
-      const opts = [{ id: '', label: 'Automatic (last scan with the same pump setting)' }];
+      const opts = [{ id: '', label: 'Automatic (last scan with the same setting)' }];
       for (let k = 0; k < i; k++) {
         const s = t.scans[k];
         opts.push({ id: s.id, label: S.scanName({ scan: s, index: k }) });
@@ -151,7 +156,7 @@
 
     function scansTpl() {
       if (!t.scans.length) {
-        return html`<p class="muted small">No scans yet. Start with the pump ON, then run the same scan with the pump OFF.</p>`;
+        return html`<p class="muted small">No scans yet. Add one scan for each setting you test: entire system, pump on, water feature and so on.</p>`;
       }
       return html`${t.scans.map((s, i) => {
         const iso = s.purpose === 'isolation';
@@ -164,12 +169,7 @@
               <button type="button" class="btn btn-quiet btn-sm" data-act="remove-scan" data-index="${i}">Remove</button>
             </header>
             <div class="grid">
-              <div class="field">
-                <span class="field-label" id="pump-${s.id}">Pump</span>
-                <div class="seg-toggle" role="radiogroup" aria-labelledby="pump-${s.id}">
-                  ${C.pumps.map((p) => html`<label><input type="radio" name="pump-${s.id}" value="${p.id}" data-field="scans.${i}.pump" ${s.pump === p.id ? 'checked' : ''}><span>${p.short}</span></label>`)}
-                </div>
-              </div>
+              ${f('What was running?', 'scans.' + i + '.condition', { type: 'select', blankLabel: false, options: C.conditions.map((c) => ({ id: c.id, label: c.label })) })}
               ${f('Scan type', 'scans.' + i + '.purpose', { type: 'select', blankLabel: false, options: [{ id: 'baseline', label: 'Test scan' }, { id: 'isolation', label: 'Rescan after isolating' }] })}
               ${iso ? f('What did you isolate?', 'scans.' + i + '.isolated', { list: 'lv-isolations', placeholder: 'e.g. Main drain, Return lines' }) : ''}
               ${iso ? f('Compare with', 'scans.' + i + '.compareTo', { type: 'select', blankLabel: false, options: compareOptions(i) }) : ''}
@@ -283,8 +283,7 @@
         </div>
         <div data-role="scans">${scansTpl()}</div>
         <div class="add-scan-row">
-          <button type="button" class="btn" data-act="add-scan" data-pump="on" data-purpose="baseline">+ Pump ON scan</button>
-          <button type="button" class="btn" data-act="add-scan" data-pump="off" data-purpose="baseline">+ Pump OFF scan</button>
+          <button type="button" class="btn" data-act="add-scan" data-purpose="baseline">+ Add a scan</button>
           <button type="button" class="btn" data-act="add-scan" data-purpose="isolation">+ Rescan after isolating</button>
         </div>
       </section>
@@ -372,9 +371,10 @@
       if (path.indexOf('pool.') === 0) {
         $('[data-role="pool-summary"]', root).innerHTML = poolSummaryTpl();
       }
-      if (/^scans\.\d+\.(pump|purpose)$/.test(path)) {
+      if (/^scans\.\d+\.(condition|purpose)$/.test(path)) {
         const s = t.scans[Number(path.split('.')[1])];
         if (path.endsWith('.purpose') && s.purpose !== 'isolation') { s.isolated = ''; s.compareTo = ''; }
+        if (path.endsWith('.condition')) s.pump = C.conditionOf(s).pump;
         renderScans();
       } else if (/^scans\.\d+\.durationMin$/.test(path)) {
         tickTimers();
@@ -391,13 +391,17 @@
       const act = btn.dataset.act;
       if (act === 'add-scan') {
         const purpose = btn.dataset.purpose;
-        let pump = btn.dataset.pump;
-        if (!pump) {
+        let condition;
+        if (purpose === 'isolation') {
           // A rescan usually repeats the setting where the leak showed most.
           const a = analysis();
-          pump = a.worst ? a.worst.scan.pump : 'on';
+          condition = a.worst ? C.conditionOf(a.worst.scan).id : 'on';
+        } else {
+          // Usual order: entire system first, then pump on, then anything else the tech picks.
+          const has = (side) => t.scans.some((x) => x.purpose !== 'isolation' && x.pump === side);
+          condition = !has('off') ? 'off' : !has('on') ? 'on' : 'feature';
         }
-        t.scans.push(LV.model.newScan({ pump, purpose }, settings));
+        t.scans.push(LV.model.newScan({ condition, pump: C.conditions.find((c) => c.id === condition).pump, purpose }, settings));
         renderScans();
         renderResults();
         touch();
