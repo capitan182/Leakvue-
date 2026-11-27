@@ -83,8 +83,14 @@ lv = D.leakvue([0xff, 0x7f, 0xff, 0xff, 0x1c]);
 assert.strictEqual(lv.error, true);
 assert.strictEqual(lv.counter, 0x1c);
 assert.strictEqual(lv.raw, null);
-// too short
+// 4 bytes = the slow reading on the ALD Sensor Details screen (no counter)
+lv = D.leakvue([0x84, 0x42, 0x30, 0x70]);
+assert.strictEqual(lv.counter, null);
+assert.strictEqual(lv.raw, 0x84423070);
+assert.strictEqual(D.leakvue([0xff, 0x7f, 0xff, 0xff]).error, true);
+// too short (the 1-byte 01 that follows each slow reading is not a reading)
 assert.strictEqual(D.leakvue([0x84, 0x53, 0x8d]), null);
+assert.strictEqual(D.leakvue([0x01]), null);
 assert.strictEqual(D.leakvue(null), null);
 // higher value during the sensor-waving spike than at rest (matches the app's graph going up)
 assert.ok(D.leakvue([0x88, 0x3b, 0xad, 0x26, 0x0a]).raw > D.leakvue([0x84, 0x53, 0x8d, 0x9d, 0x86]).raw, 'wave reads higher');

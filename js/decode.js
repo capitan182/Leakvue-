@@ -148,8 +148,9 @@
   const LEAKVUE_PX_SCALE = 16777216;
   const LEAKVUE_IN_PER_PX = 0.02113;
   function leakvue(bytes) {
-    if (!bytes || bytes.length < 5) return null;
-    const counter = bytes[4];
+    // 5 bytes during a test; 4 bytes (no counter, then a 1-byte 01) on the ALD Sensor Details screen
+    if (!bytes || bytes.length < 4) return null;
+    const counter = bytes.length >= 5 ? bytes[4] : null;
     if (bytes[0] === 0xff && bytes[1] === 0x7f) return { counter, error: true, raw: null, px: null, status: bytes[0] };
     const raw = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0; // 32-bit big-endian, unsigned
     return { counter, error: false, raw, px: raw / LEAKVUE_PX_SCALE, status: bytes[0] };
