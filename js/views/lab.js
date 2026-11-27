@@ -234,7 +234,7 @@
               : html`Change since zero <strong>${fmtIn((ch.level - ch.lbase) * ch.decoded.inPerUnit)}</strong>`}
             <span class="muted small">${ch.decoded.counter == null ? 'slow mode (old app\'s Delta screen)' : 'packet ' + ch.decoded.counter}${ch.drops ? ' · ' + ch.drops + ' dropped' : ''}${ch.errs ? ' · ' + ch.errs + ' sensor errors' : ''}</span>
           </div>
-          ${ch.lbase != null ? html`<div class="muted small">LeakVue ${ch.model} · ${ch.decoded.unitText || ''} · ${ch.model === 1 ? 'inches match the old app\'s Delta' : 'inches are approximate until confirmed'} · ${plural(ch.count, 'reading')}</div>` : ''}
+          ${ch.lbase != null ? html`<div class="muted small">LeakVue ${ch.model} · ${ch.decoded.unitText || ''} · ${ch.model === 1 ? 'inches match the old app\'s Delta' : 'inches match the ALD app\'s Delta'} · ${plural(ch.count, 'reading')}</div>` : ''}
           ${!ch.decoded.error ? html`<button type="button" class="btn btn-sm lab-read" data-act="zero" data-key="${ch.key}">Zero here</button>` : ''}` : ''}
         ${ch.props.read && !ch.firmware && S.conn && S.conn.status === 'connected' ? html`
           <button type="button" class="btn btn-sm lab-read" data-act="read" data-key="${ch.key}" ${S.conn.busy || S.conn.stalled ? 'disabled' : ''}>Read</button>` : ''}

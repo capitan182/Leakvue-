@@ -142,10 +142,12 @@
    * - The ALD app's "px" → inches: 1 px = 0.02113 in. Seven History Details screens (in, gal, px, length)
    *   agree on this once their px figure is scaled by scanLength/15 min: three full 15:00 scans give
    *   0.021133 exactly, the shorter ones 0.02109–0.02113 (display rounding). See aldInchesPerDay().
-   * - px = raw / 2^24 is still a GUESS at matching their px. Still water read 132.3264 px; the float
-   *   pushed bottom..top on the bench spanned 132.17..136.25 px (≈ 0.09 in). Confirm with the live
-   *   Delta on the ALD Sensor Details screen. */
-  const LEAKVUE_PX_SCALE = 16777216;
+   * - Their px = raw / (3 × 2^20). Settled 27 Nov 2026 from the owner's recording of the ALD Sensor
+   *   Details screen: its live Delta (inches) = (raw - raw at Clear) / 2^24 × 0.1127 for 14 readings in
+   *   a row, exact to the 5 decimals shown, and 0.1127 = 0.02113 × 16/3. The two calibrations (History
+   *   screens and live Delta) agree. Still water reads ~705.7 px; the bench float span was ~21.8 px
+   *   (≈ 0.46 in). */
+  const LEAKVUE_PX_SCALE = 3 * 1048576;
   const LEAKVUE_IN_PER_PX = 0.02113;
   function leakvue(bytes) {
     // 5 bytes during a test; 4 bytes (no counter, then a 1-byte 01) on the ALD Sensor Details screen

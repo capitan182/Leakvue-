@@ -102,10 +102,22 @@ assert.strictEqual(D.leakvueGap(0xfe, 0x01), 3);
 
 console.log('leakvue frame tests passed');
 
-// px (provisional): raw / 2^24
-assert.strictEqual(D.leakvue([0x84, 0x00, 0x00, 0x00, 0x01]).px, 132);
+// px = raw / (3 × 2^20), the ALD app's unit
+assert.strictEqual(D.leakvue([0x84, 0x00, 0x00, 0x00, 0x01]).px, 704);
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
-close(D.leakvue([0x84, 0x53, 0x8d, 0x9d, 0x86]).px, 132.32638, 1e-5, 'still-water px');
+close(D.leakvue([0x84, 0x53, 0x8d, 0x9d, 0x86]).px, 132.32638 * 16 / 3, 1e-4, 'still-water px');
+// The ALD Sensor Details Delta (27 Nov 2026 23:40 recording): after Clear at raw 0x871f5b0c, each Delta
+// equals (raw - that) in inches to the 5 decimals shown.
+{
+  const be = (hex) => hex.match(/../g).map((h) => parseInt(h, 16));
+  const inches = (hex) => D.leakvue(be(hex)).px * D.LEAKVUE_IN_PER_PX;
+  const zero = inches('871f5b0c');
+  for (const [hex, delta] of [['87281b65', 0.00385], ['871dc359', -0.00070], ['871fb2d5', 0.00015], ['87213ed5', 0.00083],
+    ['871f26a8', -0.00009], ['871bd28c', -0.00155], ['871fae23', 0.00014], ['87141ebe', -0.00494], ['8716c4d6', -0.00378],
+    ['8716b75e', -0.00380], ['8712bdee', -0.00555], ['870dc20c', -0.00774], ['871308a8', -0.00542], ['87088fb1', -0.01003]]) {
+    close(inches(hex) - zero, delta, 0.00001, 'ALD Delta at ' + hex);
+  }
+}
 assert.strictEqual(D.leakvue([0xff, 0x7f, 0xff, 0xff, 0x1c]).px, null);
 close(1 * D.LEAKVUE_IN_PER_PX, 0.02113, 1e-9, 'in per px');
 console.log('leakvue px tests passed');
